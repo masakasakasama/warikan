@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>割り勘アプリ</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .row .form-group {
+            flex: 1;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-settle {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            margin-top: 16px;
+        }
+
+        .summary-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            text-align: center;
+        }
+
+        .summary-result {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .summary-detail {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .stat-value.you { color: #667eea; }
+        .stat-value.partner { color: #e91e8e; }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .history-info {
+            flex: 1;
+        }
+
+        .history-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .history-meta {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .history-amount {
+            text-align: right;
+        }
+
+        .history-total {
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 2px;
+        }
+
+        .history-split {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        .history-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: 12px;
+        }
+
+        .history-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 4px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #888;
+            padding: 30px;
+        }
+
+        .payer-toggle {
+            display: flex;
+            gap: 8px;
+        }
+
+        .payer-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .payer-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .payer-btn.you.active {
+            border-color: #667eea;
+            background: #667eea;
+        }
+
+        .payer-btn.partner.active {
+            border-color: #e91e8e;
+            background: #e91e8e;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: #f5f5f5;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .preset-btn:hover {
+            background: #e0e0e0;
+        }
+
+        /* モーダル */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal h3 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 1.2rem;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-buttons .btn {
+            flex: 1;
+        }
+
+        .btn-cancel {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-cancel:hover {
+            background: #d0d0d0;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .settle-history {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #eee;
+        }
+
+        .settle-history h3 {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 12px;
+        }
+
+        .settle-item {
+            background: #e8f5e9;
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: #2e7d32;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💑 割り勘アプリ</h1>
+
+        <!-- サマリー -->
+        <div class="card">
+            <h2>📊 現在の精算状況</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">あなたが払った</div>
+                    <div class="stat-value you" id="youPaid">¥0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">彼女が払った</div>
+                    <div class="stat-value partner" id="partnerPaid">¥0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">あなたの負担額</div>
+                    <div class="stat-value you" id="youShare">¥0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">彼女の負担額</div>
+                    <div class="stat-value partner" id="partnerShare">¥0</div>
+                </div>
+            </div>
+            <div class="summary-box">
+                <div class="summary-result" id="summaryResult">精算なし</div>
+                <div class="summary-detail" id="summaryDetail">支払いを登録してください</div>
+            </div>
+            <button class="btn btn-settle" id="settleBtn" style="display: none;" onclick="openSettleModal()">
+                💰 精算してリセット
+            </button>
+        </div>
+
+        <!-- 支払い登録 -->
+        <div class="card">
+            <h2>➕ 支払いを登録</h2>
+            <form id="paymentForm">
+                <div class="row">
+                    <div class="form-group">
+                        <label>日付</label>
+                        <input type="date" id="date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>内容</label>
+                        <input type="text" id="description" placeholder="例: 食事、テレビ" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>総額</label>
+                    <input type="number" id="total" placeholder="50000" required>
+                </div>
+
+                <div class="form-group">
+                    <label>支払った人</label>
+                    <div class="payer-toggle" id="mainPayerToggle">
+                        <button type="button" class="payer-btn you active" data-payer="you">あなた</button>
+                        <button type="button" class="payer-btn partner" data-payer="partner">彼女</button>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="form-group">
+                        <label>あなたの負担</label>
+                        <input type="number" id="youAmount" placeholder="30000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>彼女の負担</label>
+                        <input type="number" id="partnerAmount" placeholder="20000" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>割合プリセット</label>
+                    <div class="preset-buttons">
+                        <button type="button" class="preset-btn" onclick="setPreset('main', 100, 0)">あなた100%</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('main', 50, 50)">半々</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('main', 60, 40)">6:4</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('main', 70, 30)">7:3</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('main', 0, 100)">彼女100%</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">登録する</button>
+            </form>
+        </div>
+
+        <!-- 履歴 -->
+        <div class="card">
+            <h2>📝 支払い履歴</h2>
+            <div id="historyList">
+                <div class="empty-state">まだ登録がありません</div>
+            </div>
+
+            <!-- 精算履歴 -->
+            <div class="settle-history" id="settleHistory" style="display: none;">
+                <h3>✅ 過去の精算</h3>
+                <div id="settleList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 編集モーダル -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <h3>✏️ 支払いを編集</h3>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <div class="row">
+                    <div class="form-group">
+                        <label>日付</label>
+                        <input type="date" id="editDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>内容</label>
+                        <input type="text" id="editDescription" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>総額</label>
+                    <input type="number" id="editTotal" required>
+                </div>
+
+                <div class="form-group">
+                    <label>支払った人</label>
+                    <div class="payer-toggle" id="editPayerToggle">
+                        <button type="button" class="payer-btn you" data-payer="you">あなた</button>
+                        <button type="button" class="payer-btn partner" data-payer="partner">彼女</button>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="form-group">
+                        <label>あなたの負担</label>
+                        <input type="number" id="editYouAmount" required>
+                    </div>
+                    <div class="form-group">
+                        <label>彼女の負担</label>
+                        <input type="number" id="editPartnerAmount" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>割合プリセット</label>
+                    <div class="preset-buttons">
+                        <button type="button" class="preset-btn" onclick="setPreset('edit', 100, 0)">あなた100%</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('edit', 50, 50)">半々</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('edit', 60, 40)">6:4</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('edit', 70, 30)">7:3</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('edit', 0, 100)">彼女100%</button>
+                    </div>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-cancel" onclick="closeEditModal()">キャンセル</button>
+                    <button type="submit" class="btn">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 精算モーダル -->
+    <div class="modal-overlay" id="settleModal">
+        <div class="modal">
+            <h3>💰 精算を記録</h3>
+            <p style="margin-bottom: 16px; color: #666;">精算が完了したら、支払った金額を入力してリセットしてください。</p>
+            <div class="form-group">
+                <label id="settleLabel">支払った金額</label>
+                <input type="number" id="settleAmount" required>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-cancel" onclick="closeSettleModal()">キャンセル</button>
+                <button type="button" class="btn btn-settle" onclick="confirmSettle()">精算完了</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // データ管理
+        let payments = JSON.parse(localStorage.getItem('warikan_payments') || '[]');
+        let settlements = JSON.parse(localStorage.getItem('warikan_settlements') || '[]');
+
+        // 初期化
+        function init() {
+            document.getElementById('date').valueAsDate = new Date();
+            setupPayerToggle('mainPayerToggle');
+            setupPayerToggle('editPayerToggle');
+            updateDisplay();
+        }
+
+        // 支払者トグル設定
+        function setupPayerToggle(toggleId) {
+            document.querySelectorAll(`#${toggleId} .payer-btn`).forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll(`#${toggleId} .payer-btn`).forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        }
+
+        // 割合プリセット
+        function setPreset(form, youPercent, partnerPercent) {
+            const totalId = form === 'main' ? 'total' : 'editTotal';
+            const youId = form === 'main' ? 'youAmount' : 'editYouAmount';
+            const partnerId = form === 'main' ? 'partnerAmount' : 'editPartnerAmount';
+
+            const total = parseInt(document.getElementById(totalId).value) || 0;
+            document.getElementById(youId).value = Math.round(total * youPercent / 100);
+            document.getElementById(partnerId).value = Math.round(total * partnerPercent / 100);
+        }
+
+        // 総額変更時に負担額を自動計算（半々デフォルト）
+        document.getElementById('total').addEventListener('input', function() {
+            const total = parseInt(this.value) || 0;
+            document.getElementById('youAmount').value = Math.round(total / 2);
+            document.getElementById('partnerAmount').value = Math.round(total / 2);
+        });
+
+        document.getElementById('editTotal').addEventListener('input', function() {
+            const total = parseInt(this.value) || 0;
+            document.getElementById('editYouAmount').value = Math.round(total / 2);
+            document.getElementById('editPartnerAmount').value = Math.round(total / 2);
+        });
+
+        // 支払い登録
+        document.getElementById('paymentForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const payment = {
+                id: Date.now(),
+                date: document.getElementById('date').value,
+                description: document.getElementById('description').value,
+                total: parseInt(document.getElementById('total').value),
+                payer: document.querySelector('#mainPayerToggle .payer-btn.active').dataset.payer,
+                youAmount: parseInt(document.getElementById('youAmount').value),
+                partnerAmount: parseInt(document.getElementById('partnerAmount').value)
+            };
+
+            payments.push(payment);
+            saveData();
+            updateDisplay();
+            this.reset();
+            document.getElementById('date').valueAsDate = new Date();
+
+            // 支払者ボタンをリセット
+            document.querySelectorAll('#mainPayerToggle .payer-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('#mainPayerToggle .payer-btn.you').classList.add('active');
+        });
+
+        // 表示更新
+        function updateDisplay() {
+            // 集計
+            let youPaid = 0;
+            let partnerPaid = 0;
+            let youShare = 0;
+            let partnerShare = 0;
+
+            payments.forEach(p => {
+                if (p.payer === 'you') {
+                    youPaid += p.total;
+                } else {
+                    partnerPaid += p.total;
+                }
+                youShare += p.youAmount;
+                partnerShare += p.partnerAmount;
+            });
+
+            document.getElementById('youPaid').textContent = formatMoney(youPaid);
+            document.getElementById('partnerPaid').textContent = formatMoney(partnerPaid);
+            document.getElementById('youShare').textContent = formatMoney(youShare);
+            document.getElementById('partnerShare').textContent = formatMoney(partnerShare);
+
+            // 精算計算
+            const balance = youPaid - youShare;
+
+            const summaryResult = document.getElementById('summaryResult');
+            const summaryDetail = document.getElementById('summaryDetail');
+            const settleBtn = document.getElementById('settleBtn');
+
+            if (payments.length === 0) {
+                summaryResult.textContent = '精算なし';
+                summaryDetail.textContent = '支払いを登録してください';
+                settleBtn.style.display = 'none';
+            } else if (balance > 0) {
+                summaryResult.textContent = `彼女 → あなた`;
+                summaryDetail.textContent = `彼女があなたに ${formatMoney(balance)} 払う`;
+                settleBtn.style.display = 'block';
+            } else if (balance < 0) {
+                summaryResult.textContent = `あなた → 彼女`;
+                summaryDetail.textContent = `あなたが彼女に ${formatMoney(-balance)} 払う`;
+                settleBtn.style.display = 'block';
+            } else {
+                summaryResult.textContent = '精算済み ✓';
+                summaryDetail.textContent = '支払いは均等です';
+                settleBtn.style.display = payments.length > 0 ? 'block' : 'none';
+            }
+
+            // 履歴表示
+            const historyList = document.getElementById('historyList');
+            if (payments.length === 0) {
+                historyList.innerHTML = '<div class="empty-state">まだ登録がありません</div>';
+            } else {
+                historyList.innerHTML = payments
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .map(p => `
+                        <div class="history-item">
+                            <div class="history-info">
+                                <div class="history-title">${escapeHtml(p.description)}</div>
+                                <div class="history-meta">${formatDate(p.date)} • ${p.payer === 'you' ? 'あなた' : '彼女'}が支払い</div>
+                            </div>
+                            <div class="history-amount">
+                                <div class="history-total">${formatMoney(p.total)}</div>
+                                <div class="history-split">あなた${formatMoney(p.youAmount)} / 彼女${formatMoney(p.partnerAmount)}</div>
+                            </div>
+                            <div class="history-actions">
+                                <button onclick="openEditModal(${p.id})" title="編集">✏️</button>
+                                <button onclick="deletePayment(${p.id})" title="削除">🗑️</button>
+                            </div>
+                        </div>
+                    `).join('');
+            }
+
+            // 精算履歴表示
+            const settleHistory = document.getElementById('settleHistory');
+            const settleList = document.getElementById('settleList');
+            if (settlements.length > 0) {
+                settleHistory.style.display = 'block';
+                settleList.innerHTML = settlements
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .slice(0, 5)
+                    .map(s => `
+                        <div class="settle-item">
+                            ${formatDate(s.date)} - ${s.payer === 'you' ? 'あなた' : '彼女'}が${s.receiver === 'you' ? 'あなた' : '彼女'}に ${formatMoney(s.amount)} 支払い
+                        </div>
+                    `).join('');
+            } else {
+                settleHistory.style.display = 'none';
+            }
+        }
+
+        // 支払い削除
+        function deletePayment(id) {
+            if (confirm('この支払いを削除しますか？')) {
+                payments = payments.filter(p => p.id !== id);
+                saveData();
+                updateDisplay();
+            }
+        }
+
+        // 編集モーダルを開く
+        function openEditModal(id) {
+            const payment = payments.find(p => p.id === id);
+            if (!payment) return;
+
+            document.getElementById('editId').value = id;
+            document.getElementById('editDate').value = payment.date;
+            document.getElementById('editDescription').value = payment.description;
+            document.getElementById('editTotal').value = payment.total;
+            document.getElementById('editYouAmount').value = payment.youAmount;
+            document.getElementById('editPartnerAmount').value = payment.partnerAmount;
+
+            document.querySelectorAll('#editPayerToggle .payer-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.payer === payment.payer) {
+                    btn.classList.add('active');
+                }
+            });
+
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        // 編集モーダルを閉じる
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        // 編集フォーム送信
+        document.getElementById('editForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const id = parseInt(document.getElementById('editId').value);
+            const index = payments.findIndex(p => p.id === id);
+            if (index === -1) return;
+
+            payments[index] = {
+                id: id,
+                date: document.getElementById('editDate').value,
+                description: document.getElementById('editDescription').value,
+                total: parseInt(document.getElementById('editTotal').value),
+                payer: document.querySelector('#editPayerToggle .payer-btn.active').dataset.payer,
+                youAmount: parseInt(document.getElementById('editYouAmount').value),
+                partnerAmount: parseInt(document.getElementById('editPartnerAmount').value)
+            };
+
+            saveData();
+            updateDisplay();
+            closeEditModal();
+        });
+
+        // モーダル外クリックで閉じる
+        document.getElementById('editModal').addEventListener('click', function(e) {
+            if (e.target === this) closeEditModal();
+        });
+
+        // 精算モーダル
+        function openSettleModal() {
+            // 現在の精算額を計算
+            let youPaid = 0, youShare = 0;
+            payments.forEach(p => {
+                if (p.payer === 'you') youPaid += p.total;
+                youShare += p.youAmount;
+            });
+            const balance = youPaid - youShare;
+
+            const label = document.getElementById('settleLabel');
+            const amountInput = document.getElementById('settleAmount');
+
+            if (balance > 0) {
+                label.textContent = `彼女があなたに払う金額`;
+            } else {
+                label.textContent = `あなたが彼女に払う金額`;
+            }
+            amountInput.value = Math.abs(balance);
+
+            document.getElementById('settleModal').classList.add('active');
+        }
+
+        function closeSettleModal() {
+            document.getElementById('settleModal').classList.remove('active');
+        }
+
+        function confirmSettle() {
+            const amount = parseInt(document.getElementById('settleAmount').value);
+            if (!amount || amount <= 0) {
+                alert('金額を入力してください');
+                return;
+            }
+
+            // 誰が誰に払ったかを計算
+            let youPaid = 0, youShare = 0;
+            payments.forEach(p => {
+                if (p.payer === 'you') youPaid += p.total;
+                youShare += p.youAmount;
+            });
+            const balance = youPaid - youShare;
+
+            const settlement = {
+                id: Date.now(),
+                date: new Date().toISOString().split('T')[0],
+                amount: amount,
+                payer: balance > 0 ? 'partner' : 'you',
+                receiver: balance > 0 ? 'you' : 'partner'
+            };
+
+            settlements.push(settlement);
+            payments = []; // 支払い履歴をリセット
+            saveData();
+            updateDisplay();
+            closeSettleModal();
+        }
+
+        document.getElementById('settleModal').addEventListener('click', function(e) {
+            if (e.target === this) closeSettleModal();
+        });
+
+        // データ保存
+        function saveData() {
+            localStorage.setItem('warikan_payments', JSON.stringify(payments));
+            localStorage.setItem('warikan_settlements', JSON.stringify(settlements));
+        }
+
+        // フォーマット関数
+        function formatMoney(amount) {
+            return '¥' + amount.toLocaleString();
+        }
+
+        function formatDate(dateStr) {
+            const d = new Date(dateStr);
+            return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 起動
+        init();
+    </script>
+</body>
+</html>
