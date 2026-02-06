@@ -343,6 +343,56 @@
             margin-bottom: 8px;
             font-size: 0.85rem;
             color: #2e7d32;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settle-item button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 4px;
+            opacity: 0.7;
+        }
+
+        .settle-item button:hover {
+            opacity: 1;
+        }
+
+        .sync-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #eee;
+        }
+
+        .sync-btn {
+            width: 100%;
+            padding: 12px;
+            background: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        .sync-btn:hover {
+            background: #f57c00;
+        }
+
+        .sync-status {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .sync-status.success {
+            color: #4caf50;
         }
     </style>
 </head>
@@ -445,6 +495,12 @@
             <div class="settle-history" id="settleHistory" style="display: none;">
                 <h3>✅ 過去の精算</h3>
                 <div id="settleList"></div>
+            </div>
+
+            <!-- データ共有 -->
+            <div class="sync-section">
+                <button class="sync-btn" onclick="shareData()">📤 データを共有（LINEで送る）</button>
+                <div class="sync-status" id="syncStatus"></div>
             </div>
         </div>
     </div>
@@ -680,7 +736,8 @@
                     .slice(0, 5)
                     .map(s => `
                         <div class="settle-item">
-                            ${formatDate(s.date)} - ${s.payer === 'you' ? 'あなた' : '彼女'}が${s.receiver === 'you' ? 'あなた' : '彼女'}に ${formatMoney(s.amount)} 支払い
+                            <span>${formatDate(s.date)} - ${s.payer === 'you' ? 'あなた' : '彼女'}が${s.receiver === 'you' ? 'あなた' : '彼女'}に ${formatMoney(s.amount)} 支払い</span>
+                            <button onclick="undoSettle(${s.id})" title="取り消し">↩️</button>
                         </div>
                     `).join('');
             } else {
@@ -799,7 +856,8 @@
                 date: new Date().toISOString().split('T')[0],
                 amount: amount,
                 payer: balance > 0 ? 'partner' : 'you',
-                receiver: balance > 0 ? 'you' : 'partner'
+                receiver: balance > 0 ? 'you' : 'partner',
+                backupPayments: [...payments] // 取り消し用にバックアップ
             };
 
             settlements.push(settlement);
@@ -812,6 +870,24 @@
         document.getElementById('settleModal').addEventListener('click', function(e) {
             if (e.target === this) closeSettleModal();
         });
+
+        // 精算を取り消し
+        function undoSettle(id) {
+            if (!confirm('この精算を取り消しますか？\n支払い履歴が復元されます。')) return;
+
+            const settlement = settlements.find(s => s.id === id);
+            if (!settlement) return;
+
+            // バックアップから支払い履歴を復元
+            if (settlement.backupPayments && settlement.backupPayments.length > 0) {
+                payments = [...payments, ...settlement.backupPayments];
+            }
+
+            // 精算を削除
+            settlements = settlements.filter(s => s.id !== id);
+            saveData();
+            updateDisplay();
+        }
 
         // データ保存
         function saveData() {
@@ -835,8 +911,55 @@
             return div.innerHTML;
         }
 
+        // データ共有機能
+        function shareData() {
+            const data = {
+                p: payments,
+                s: settlements
+            };
+            const json = JSON.stringify(data);
+            const encoded = btoa(unescape(encodeURIComponent(json)));
+            const url = window.location.origin + window.location.pathname + '?d=' + encoded;
+
+            // クリップボードにコピー
+            navigator.clipboard.writeText(url).then(() => {
+                document.getElementById('syncStatus').textContent = '✅ URLをコピーしました！LINEで送ってね';
+                document.getElementById('syncStatus').className = 'sync-status success';
+            }).catch(() => {
+                // フォールバック
+                prompt('このURLをコピーしてLINEで送ってね:', url);
+            });
+        }
+
+        // URLからデータを読み込み
+        function loadFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            const encoded = params.get('d');
+            if (encoded) {
+                try {
+                    const json = decodeURIComponent(escape(atob(encoded)));
+                    const data = JSON.parse(json);
+                    if (data.p && data.s) {
+                        if (confirm('共有されたデータを読み込みますか？\n（現在のデータは上書きされます）')) {
+                            payments = data.p;
+                            settlements = data.s;
+                            saveData();
+                            updateDisplay();
+                            // URLをクリーンにする
+                            window.history.replaceState({}, '', window.location.pathname);
+                            document.getElementById('syncStatus').textContent = '✅ データを読み込みました！';
+                            document.getElementById('syncStatus').className = 'sync-status success';
+                        }
+                    }
+                } catch(e) {
+                    console.error('データ読み込みエラー:', e);
+                }
+            }
+        }
+
         // 起動
         init();
+        loadFromURL();
     </script>
 </body>
 </html>
