@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>割り勘アプリ</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -384,6 +387,14 @@
             background: #f57c00;
         }
 
+        .sync-btn.connected {
+            background: #4caf50;
+        }
+
+        .sync-btn.connected:hover {
+            background: #43a047;
+        }
+
         .sync-status {
             text-align: center;
             font-size: 0.8rem;
@@ -395,6 +406,10 @@
             color: #4caf50;
         }
 
+        .sync-status.syncing {
+            color: #ff9800;
+        }
+
         .sync-info {
             background: #e3f2fd;
             border-radius: 8px;
@@ -402,6 +417,28 @@
             margin-top: 10px;
             font-size: 0.85rem;
             color: #1565c0;
+        }
+
+        .room-display {
+            background: #fff3e0;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .room-id {
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #e65100;
+            letter-spacing: 2px;
+        }
+
+        .room-label {
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 4px;
         }
     </style>
 </head>
@@ -506,13 +543,18 @@
                 <div id="settleList"></div>
             </div>
 
-            <!-- データ共有 -->
+            <!-- リアルタイム同期 -->
             <div class="sync-section">
-                <button class="sync-btn" onclick="shareData()">📤 データを共有（LINEで送る）</button>
+                <button class="sync-btn" id="syncBtn" onclick="toggleSync()">🔗 リアルタイム同期を開始</button>
                 <div class="sync-status" id="syncStatus"></div>
+                <div class="room-display" id="roomDisplay" style="display: none;">
+                    <div class="room-label">同期ID（彼女に共有してね）</div>
+                    <div class="room-id" id="roomId"></div>
+                    <button style="margin-top: 8px; padding: 6px 12px; border: 1px solid #e65100; background: white; border-radius: 6px; cursor: pointer; font-size: 0.8rem;" onclick="copyRoomUrl()">📋 URLをコピー</button>
+                </div>
                 <div class="sync-info">
-                    💡 データを追加したら、また「共有」を押して彼女に送ってね。<br>
-                    彼女がURLを開くと最新データが見れるよ！
+                    💡 同期を開始すると、二人のデータがリアルタイムで共有されるよ！<br>
+                    片方が入力したら、もう片方にも自動で反映されます。
                 </div>
             </div>
         </div>
@@ -595,9 +637,28 @@
     </div>
 
     <script>
+        // Firebase 設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyDBBD1W-zneFDNi1eZCtYqvyoXyJcmdk0k",
+            authDomain: "warikan-app-120fd.firebaseapp.com",
+            databaseURL: "https://warikan-app-120fd-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "warikan-app-120fd",
+            storageBucket: "warikan-app-120fd.firebasestorage.app",
+            messagingSenderId: "43289931875",
+            appId: "1:43289931875:web:ca26551e40da813b9e4856"
+        };
+
+        // Firebase 初期化
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
         // データ管理
         let payments = JSON.parse(localStorage.getItem('warikan_payments') || '[]');
         let settlements = JSON.parse(localStorage.getItem('warikan_settlements') || '[]');
+        let roomId = null;
+        let isOnline = false;
+        let dataRef = null;
+        let isUpdatingFromFirebase = false;
 
         // 初期化
         function init() {
@@ -605,6 +666,135 @@
             setupPayerToggle('mainPayerToggle');
             setupPayerToggle('editPayerToggle');
             updateDisplay();
+
+            // URLからルームIDを確認
+            checkUrlForRoom();
+        }
+
+        // URLからルームIDを確認
+        function checkUrlForRoom() {
+            const params = new URLSearchParams(window.location.search);
+            const urlRoomId = params.get('room');
+            if (urlRoomId) {
+                roomId = urlRoomId;
+                connectToRoom(roomId);
+            }
+        }
+
+        // 同期のトグル
+        function toggleSync() {
+            if (isOnline) {
+                disconnectFromRoom();
+            } else {
+                if (!roomId) {
+                    roomId = generateRoomId();
+                }
+                connectToRoom(roomId);
+            }
+        }
+
+        // ルームID生成
+        function generateRoomId() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+
+        // ルームに接続
+        function connectToRoom(id) {
+            roomId = id;
+            isOnline = true;
+
+            dataRef = database.ref('rooms/' + roomId);
+
+            // 現在のローカルデータを一旦保持
+            const localPayments = [...payments];
+            const localSettlements = [...settlements];
+
+            // Firebaseからデータを監視
+            dataRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    isUpdatingFromFirebase = true;
+                    payments = data.payments || [];
+                    settlements = data.settlements || [];
+                    saveLocalData();
+                    updateDisplay();
+                    isUpdatingFromFirebase = false;
+                    updateSyncStatus('🟢 同期中');
+                } else {
+                    // ルームが空の場合、ローカルデータをアップロード
+                    if (localPayments.length > 0 || localSettlements.length > 0) {
+                        saveToFirebase();
+                    }
+                    updateSyncStatus('🟢 同期中');
+                }
+            }, (error) => {
+                console.error('Firebase error:', error);
+                updateSyncStatus('🔴 接続エラー');
+            });
+
+            // UI更新
+            const syncBtn = document.getElementById('syncBtn');
+            syncBtn.textContent = '🔴 同期を停止';
+            syncBtn.classList.add('connected');
+
+            document.getElementById('roomDisplay').style.display = 'block';
+            document.getElementById('roomId').textContent = roomId;
+
+            // URLを更新
+            const url = new URL(window.location);
+            url.searchParams.set('room', roomId);
+            window.history.replaceState({}, '', url);
+        }
+
+        // ルームから切断
+        function disconnectFromRoom() {
+            if (dataRef) {
+                dataRef.off();
+            }
+            isOnline = false;
+
+            const syncBtn = document.getElementById('syncBtn');
+            syncBtn.textContent = '🔗 リアルタイム同期を開始';
+            syncBtn.classList.remove('connected');
+
+            document.getElementById('roomDisplay').style.display = 'none';
+            updateSyncStatus('オフライン');
+
+            // URLをクリア
+            const url = new URL(window.location);
+            url.searchParams.delete('room');
+            window.history.replaceState({}, '', url);
+        }
+
+        // Firebaseにデータを保存
+        function saveToFirebase() {
+            if (!isOnline || !dataRef || isUpdatingFromFirebase) return;
+
+            dataRef.set({
+                payments: payments,
+                settlements: settlements,
+                updatedAt: Date.now()
+            }).catch(error => {
+                console.error('Save error:', error);
+                updateSyncStatus('🔴 保存エラー');
+            });
+        }
+
+        // 同期ステータス更新
+        function updateSyncStatus(status) {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.textContent = status;
+            statusEl.className = 'sync-status' + (status.includes('同期中') ? ' success' : status.includes('エラー') ? '' : ' syncing');
+        }
+
+        // ルームURLをコピー
+        function copyRoomUrl() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                updateSyncStatus('✅ URLをコピーしました！LINEで送ってね');
+            }).catch(() => {
+                prompt('このURLをコピーしてLINEで送ってね:', url);
+            });
         }
 
         // 支払者トグル設定
@@ -902,8 +1092,14 @@
             updateDisplay();
         }
 
-        // データ保存
+        // データ保存（ローカル + Firebase）
         function saveData() {
+            saveLocalData();
+            saveToFirebase();
+        }
+
+        // ローカルデータ保存
+        function saveLocalData() {
             localStorage.setItem('warikan_payments', JSON.stringify(payments));
             localStorage.setItem('warikan_settlements', JSON.stringify(settlements));
         }
@@ -924,55 +1120,8 @@
             return div.innerHTML;
         }
 
-        // データ共有機能
-        function shareData() {
-            const data = {
-                p: payments,
-                s: settlements
-            };
-            const json = JSON.stringify(data);
-            const encoded = btoa(unescape(encodeURIComponent(json)));
-            const url = window.location.origin + window.location.pathname + '?d=' + encoded;
-
-            // クリップボードにコピー
-            navigator.clipboard.writeText(url).then(() => {
-                document.getElementById('syncStatus').textContent = '✅ URLをコピーしました！LINEで送ってね';
-                document.getElementById('syncStatus').className = 'sync-status success';
-            }).catch(() => {
-                // フォールバック
-                prompt('このURLをコピーしてLINEで送ってね:', url);
-            });
-        }
-
-        // URLからデータを読み込み
-        function loadFromURL() {
-            const params = new URLSearchParams(window.location.search);
-            const encoded = params.get('d');
-            if (encoded) {
-                try {
-                    const json = decodeURIComponent(escape(atob(encoded)));
-                    const data = JSON.parse(json);
-                    if (data.p && data.s) {
-                        if (confirm('共有されたデータを読み込みますか？\n（現在のデータは上書きされます）')) {
-                            payments = data.p;
-                            settlements = data.s;
-                            saveData();
-                            updateDisplay();
-                            // URLをクリーンにする
-                            window.history.replaceState({}, '', window.location.pathname);
-                            document.getElementById('syncStatus').textContent = '✅ データを読み込みました！';
-                            document.getElementById('syncStatus').className = 'sync-status success';
-                        }
-                    }
-                } catch(e) {
-                    console.error('データ読み込みエラー:', e);
-                }
-            }
-        }
-
         // 起動
         init();
-        loadFromURL();
     </script>
 </body>
 </html>
