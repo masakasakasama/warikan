@@ -625,13 +625,13 @@
     </div>
 
     <script>
-        // JSONBin.io API（無料・登録不要）
-        const JSONBIN_API = 'https://api.jsonbin.io/v3/b';
+        // JSONBlob.com API（完全無料・登録不要・CORS対応）
+        const JSONBLOB_API = 'https://jsonblob.com/api/jsonBlob';
 
         // データ管理
         let payments = JSON.parse(localStorage.getItem('warikan_payments') || '[]');
         let settlements = JSON.parse(localStorage.getItem('warikan_settlements') || '[]');
-        let binId = localStorage.getItem('warikan_binId') || null;
+        let blobId = localStorage.getItem('warikan_blobId') || null;
         let autoSyncInterval = null;
 
         // 初期化
@@ -640,18 +640,18 @@
             setupPayerToggle('mainPayerToggle');
             setupPayerToggle('editPayerToggle');
 
-            // URLからBin IDを取得
+            // URLからBlob IDを取得
             const params = new URLSearchParams(window.location.search);
-            const urlBinId = params.get('bin');
+            const urlBlobId = params.get('sync');
 
-            if (urlBinId) {
+            if (urlBlobId) {
                 // 共有URLから来た場合
-                binId = urlBinId;
-                localStorage.setItem('warikan_binId', binId);
-                await loadFromBin();
+                blobId = urlBlobId;
+                localStorage.setItem('warikan_blobId', blobId);
+                await loadFromBlob();
                 window.history.replaceState({}, '', window.location.pathname);
                 startAutoSync();
-            } else if (binId) {
+            } else if (blobId) {
                 // 既に同期設定がある場合
                 startAutoSync();
             }
@@ -665,7 +665,7 @@
             const shareBtn = document.getElementById('shareBtn');
             const refreshBtn = document.getElementById('refreshBtn');
 
-            if (binId) {
+            if (blobId) {
                 shareBtn.textContent = '📤 URLをコピー';
                 refreshBtn.style.display = 'block';
             } else {
@@ -678,23 +678,36 @@
         async function shareOrSync() {
             const status = document.getElementById('syncStatus');
 
-            if (!binId) {
-                // 新しいBinを作成
+            if (!blobId) {
+                // 新しいBlobを作成
                 status.textContent = '⏳ 同期を設定中...';
                 status.className = 'sync-status syncing';
 
                 try {
-                    const res = await fetch(JSONBIN_API, {
+                    const res = await fetch(JSONBLOB_API, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
                         body: JSON.stringify({ payments, settlements, updated: Date.now() })
                     });
-                    const data = await res.json();
-                    binId = data.metadata.id;
-                    localStorage.setItem('warikan_binId', binId);
+
+                    // LocationヘッダーからBlob IDを取得
+                    const location = res.headers.get('Location');
+                    if (location) {
+                        blobId = location.split('/').pop();
+                    } else {
+                        // URLからIDを取得できない場合はレスポンスから
+                        const url = res.url;
+                        blobId = url.split('/').pop();
+                    }
+
+                    localStorage.setItem('warikan_blobId', blobId);
                     startAutoSync();
                     updateSyncUI();
                 } catch(e) {
+                    console.error('Blob作成エラー:', e);
                     status.textContent = '❌ 作成に失敗しました';
                     status.className = 'sync-status error';
                     return;
@@ -702,7 +715,7 @@
             }
 
             // URLをコピー
-            const url = window.location.origin + window.location.pathname + '?bin=' + binId;
+            const url = window.location.origin + window.location.pathname + '?sync=' + blobId;
             try {
                 await navigator.clipboard.writeText(url);
                 status.innerHTML = '<span class="sync-indicator connected"></span>✅ URLをコピー！LINEで送ってね';
@@ -713,20 +726,22 @@
         }
 
         // サーバーからデータを取得
-        async function loadFromBin() {
-            if (!binId) return;
+        async function loadFromBlob() {
+            if (!blobId) return;
 
             const status = document.getElementById('syncStatus');
             status.textContent = '⏳ データを読み込み中...';
             status.className = 'sync-status syncing';
 
             try {
-                const res = await fetch(`${JSONBIN_API}/${binId}/latest`);
+                const res = await fetch(`${JSONBLOB_API}/${blobId}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
                 const data = await res.json();
 
-                if (data.record) {
-                    payments = data.record.payments || [];
-                    settlements = data.record.settlements || [];
+                if (data) {
+                    payments = data.payments || [];
+                    settlements = data.settlements || [];
                     saveDataLocal();
                     updateDisplay();
                     status.innerHTML = '<span class="sync-indicator connected"></span>同期中';
@@ -739,13 +754,16 @@
         }
 
         // サーバーにデータを保存
-        async function saveToBin() {
-            if (!binId) return;
+        async function saveToBlob() {
+            if (!blobId) return;
 
             try {
-                await fetch(`${JSONBIN_API}/${binId}`, {
+                await fetch(`${JSONBLOB_API}/${blobId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify({ payments, settlements, updated: Date.now() })
                 });
             } catch(e) {
@@ -755,13 +773,13 @@
 
         // 手動更新
         async function refreshData() {
-            await loadFromBin();
+            await loadFromBlob();
         }
 
         // 自動同期開始
         function startAutoSync() {
             if (autoSyncInterval) clearInterval(autoSyncInterval);
-            autoSyncInterval = setInterval(loadFromBin, 5000); // 5秒ごと
+            autoSyncInterval = setInterval(loadFromBlob, 5000); // 5秒ごと
         }
 
         // 支払者トグル設定
@@ -1068,7 +1086,7 @@
         // データ保存（ローカル + サーバー）
         async function saveData() {
             saveDataLocal();
-            await saveToBin();
+            await saveToBlob();
         }
 
         // フォーマット関数
