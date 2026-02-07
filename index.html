@@ -367,21 +367,34 @@
             border-top: 1px solid #eee;
         }
 
+        .sync-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
         .sync-btn {
-            width: 100%;
+            flex: 1;
             padding: 12px;
             background: #ff9800;
             color: white;
             border: none;
             border-radius: 10px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
-            margin-bottom: 8px;
         }
 
         .sync-btn:hover {
             background: #f57c00;
+        }
+
+        .sync-btn.refresh {
+            background: #2196f3;
+        }
+
+        .sync-btn.refresh:hover {
+            background: #1976d2;
         }
 
         .sync-status {
@@ -393,6 +406,33 @@
 
         .sync-status.success {
             color: #4caf50;
+        }
+
+        .sync-status.error {
+            color: #f44336;
+        }
+
+        .sync-status.syncing {
+            color: #2196f3;
+        }
+
+        .sync-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #ccc;
+        }
+
+        .sync-indicator.connected {
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
     </style>
 </head>
@@ -497,9 +537,12 @@
                 <div id="settleList"></div>
             </div>
 
-            <!-- データ共有 -->
+            <!-- データ同期 -->
             <div class="sync-section">
-                <button class="sync-btn" onclick="shareData()">📤 データを共有（LINEで送る）</button>
+                <div class="sync-buttons">
+                    <button class="sync-btn" onclick="shareOrSync()" id="shareBtn">🔗 同期URLを作成</button>
+                    <button class="sync-btn refresh" onclick="refreshData()" id="refreshBtn" style="display: none;">🔄 更新</button>
+                </div>
                 <div class="sync-status" id="syncStatus"></div>
             </div>
         </div>
@@ -582,16 +625,143 @@
     </div>
 
     <script>
+        // JSONBin.io API（無料・登録不要）
+        const JSONBIN_API = 'https://api.jsonbin.io/v3/b';
+
         // データ管理
         let payments = JSON.parse(localStorage.getItem('warikan_payments') || '[]');
         let settlements = JSON.parse(localStorage.getItem('warikan_settlements') || '[]');
+        let binId = localStorage.getItem('warikan_binId') || null;
+        let autoSyncInterval = null;
 
         // 初期化
-        function init() {
+        async function init() {
             document.getElementById('date').valueAsDate = new Date();
             setupPayerToggle('mainPayerToggle');
             setupPayerToggle('editPayerToggle');
+
+            // URLからBin IDを取得
+            const params = new URLSearchParams(window.location.search);
+            const urlBinId = params.get('bin');
+
+            if (urlBinId) {
+                // 共有URLから来た場合
+                binId = urlBinId;
+                localStorage.setItem('warikan_binId', binId);
+                await loadFromBin();
+                window.history.replaceState({}, '', window.location.pathname);
+                startAutoSync();
+            } else if (binId) {
+                // 既に同期設定がある場合
+                startAutoSync();
+            }
+
+            updateSyncUI();
             updateDisplay();
+        }
+
+        // 同期UIを更新
+        function updateSyncUI() {
+            const shareBtn = document.getElementById('shareBtn');
+            const refreshBtn = document.getElementById('refreshBtn');
+
+            if (binId) {
+                shareBtn.textContent = '📤 URLをコピー';
+                refreshBtn.style.display = 'block';
+            } else {
+                shareBtn.textContent = '🔗 同期URLを作成';
+                refreshBtn.style.display = 'none';
+            }
+        }
+
+        // 共有または同期
+        async function shareOrSync() {
+            const status = document.getElementById('syncStatus');
+
+            if (!binId) {
+                // 新しいBinを作成
+                status.textContent = '⏳ 同期を設定中...';
+                status.className = 'sync-status syncing';
+
+                try {
+                    const res = await fetch(JSONBIN_API, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ payments, settlements, updated: Date.now() })
+                    });
+                    const data = await res.json();
+                    binId = data.metadata.id;
+                    localStorage.setItem('warikan_binId', binId);
+                    startAutoSync();
+                    updateSyncUI();
+                } catch(e) {
+                    status.textContent = '❌ 作成に失敗しました';
+                    status.className = 'sync-status error';
+                    return;
+                }
+            }
+
+            // URLをコピー
+            const url = window.location.origin + window.location.pathname + '?bin=' + binId;
+            try {
+                await navigator.clipboard.writeText(url);
+                status.innerHTML = '<span class="sync-indicator connected"></span>✅ URLをコピー！LINEで送ってね';
+                status.className = 'sync-status success';
+            } catch(e) {
+                prompt('このURLをLINEで送ってね:', url);
+            }
+        }
+
+        // サーバーからデータを取得
+        async function loadFromBin() {
+            if (!binId) return;
+
+            const status = document.getElementById('syncStatus');
+            status.textContent = '⏳ データを読み込み中...';
+            status.className = 'sync-status syncing';
+
+            try {
+                const res = await fetch(`${JSONBIN_API}/${binId}/latest`);
+                const data = await res.json();
+
+                if (data.record) {
+                    payments = data.record.payments || [];
+                    settlements = data.record.settlements || [];
+                    saveDataLocal();
+                    updateDisplay();
+                    status.innerHTML = '<span class="sync-indicator connected"></span>同期中';
+                    status.className = 'sync-status success';
+                }
+            } catch(e) {
+                status.textContent = '❌ 読み込みに失敗';
+                status.className = 'sync-status error';
+            }
+        }
+
+        // サーバーにデータを保存
+        async function saveToBin() {
+            if (!binId) return;
+
+            try {
+                await fetch(`${JSONBIN_API}/${binId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ payments, settlements, updated: Date.now() })
+                });
+            } catch(e) {
+                console.error('サーバー保存エラー:', e);
+            }
+        }
+
+        // 手動更新
+        async function refreshData() {
+            await loadFromBin();
+        }
+
+        // 自動同期開始
+        function startAutoSync() {
+            if (autoSyncInterval) clearInterval(autoSyncInterval);
+            autoSyncInterval = setInterval(loadFromBin, 5000); // 5秒ごと
         }
 
         // 支払者トグル設定
@@ -629,7 +799,7 @@
         });
 
         // 支払い登録
-        document.getElementById('paymentForm').addEventListener('submit', function(e) {
+        document.getElementById('paymentForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
             const payment = {
@@ -643,7 +813,7 @@
             };
 
             payments.push(payment);
-            saveData();
+            await saveData();
             updateDisplay();
             this.reset();
             document.getElementById('date').valueAsDate = new Date();
@@ -746,10 +916,10 @@
         }
 
         // 支払い削除
-        function deletePayment(id) {
+        async function deletePayment(id) {
             if (confirm('この支払いを削除しますか？')) {
                 payments = payments.filter(p => p.id !== id);
-                saveData();
+                await saveData();
                 updateDisplay();
             }
         }
@@ -782,7 +952,7 @@
         }
 
         // 編集フォーム送信
-        document.getElementById('editForm').addEventListener('submit', function(e) {
+        document.getElementById('editForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
             const id = parseInt(document.getElementById('editId').value);
@@ -799,7 +969,7 @@
                 partnerAmount: parseInt(document.getElementById('editPartnerAmount').value)
             };
 
-            saveData();
+            await saveData();
             updateDisplay();
             closeEditModal();
         });
@@ -836,7 +1006,7 @@
             document.getElementById('settleModal').classList.remove('active');
         }
 
-        function confirmSettle() {
+        async function confirmSettle() {
             const amount = parseInt(document.getElementById('settleAmount').value);
             if (!amount || amount <= 0) {
                 alert('金額を入力してください');
@@ -862,7 +1032,7 @@
 
             settlements.push(settlement);
             payments = []; // 支払い履歴をリセット
-            saveData();
+            await saveData();
             updateDisplay();
             closeSettleModal();
         }
@@ -872,7 +1042,7 @@
         });
 
         // 精算を取り消し
-        function undoSettle(id) {
+        async function undoSettle(id) {
             if (!confirm('この精算を取り消しますか？\n支払い履歴が復元されます。')) return;
 
             const settlement = settlements.find(s => s.id === id);
@@ -885,14 +1055,20 @@
 
             // 精算を削除
             settlements = settlements.filter(s => s.id !== id);
-            saveData();
+            await saveData();
             updateDisplay();
         }
 
-        // データ保存
-        function saveData() {
+        // ローカルに保存
+        function saveDataLocal() {
             localStorage.setItem('warikan_payments', JSON.stringify(payments));
             localStorage.setItem('warikan_settlements', JSON.stringify(settlements));
+        }
+
+        // データ保存（ローカル + サーバー）
+        async function saveData() {
+            saveDataLocal();
+            await saveToBin();
         }
 
         // フォーマット関数
@@ -911,55 +1087,8 @@
             return div.innerHTML;
         }
 
-        // データ共有機能
-        function shareData() {
-            const data = {
-                p: payments,
-                s: settlements
-            };
-            const json = JSON.stringify(data);
-            const encoded = btoa(unescape(encodeURIComponent(json)));
-            const url = window.location.origin + window.location.pathname + '?d=' + encoded;
-
-            // クリップボードにコピー
-            navigator.clipboard.writeText(url).then(() => {
-                document.getElementById('syncStatus').textContent = '✅ URLをコピーしました！LINEで送ってね';
-                document.getElementById('syncStatus').className = 'sync-status success';
-            }).catch(() => {
-                // フォールバック
-                prompt('このURLをコピーしてLINEで送ってね:', url);
-            });
-        }
-
-        // URLからデータを読み込み
-        function loadFromURL() {
-            const params = new URLSearchParams(window.location.search);
-            const encoded = params.get('d');
-            if (encoded) {
-                try {
-                    const json = decodeURIComponent(escape(atob(encoded)));
-                    const data = JSON.parse(json);
-                    if (data.p && data.s) {
-                        if (confirm('共有されたデータを読み込みますか？\n（現在のデータは上書きされます）')) {
-                            payments = data.p;
-                            settlements = data.s;
-                            saveData();
-                            updateDisplay();
-                            // URLをクリーンにする
-                            window.history.replaceState({}, '', window.location.pathname);
-                            document.getElementById('syncStatus').textContent = '✅ データを読み込みました！';
-                            document.getElementById('syncStatus').className = 'sync-status success';
-                        }
-                    }
-                } catch(e) {
-                    console.error('データ読み込みエラー:', e);
-                }
-            }
-        }
-
         // 起動
         init();
-        loadFromURL();
     </script>
 </body>
 </html>
