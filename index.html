@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>割り勘アプリ</title>
+    <title>💕 たつや＆レベッカの割り勘</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
@@ -16,7 +16,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 50%, #a18cd1 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -46,7 +46,7 @@
             color: #333;
             margin-bottom: 16px;
             padding-bottom: 8px;
-            border-bottom: 2px solid #667eea;
+            border-bottom: 2px solid #ff6b9d;
         }
 
         .form-group {
@@ -72,7 +72,7 @@
 
         input:focus, select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #ff6b9d;
         }
 
         .row {
@@ -87,7 +87,7 @@
         .btn {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
             color: white;
             border: none;
             border-radius: 10px;
@@ -99,7 +99,7 @@
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
         }
 
         .btn:active {
@@ -112,7 +112,7 @@
         }
 
         .summary-box {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
             border-radius: 12px;
             padding: 20px;
             color: white;
@@ -156,8 +156,8 @@
             color: #333;
         }
 
-        .stat-value.you { color: #667eea; }
-        .stat-value.partner { color: #e91e8e; }
+        .stat-value.you { color: #5b86e5; }
+        .stat-value.partner { color: #ff6b9d; }
 
         .history-item {
             display: flex;
@@ -236,19 +236,19 @@
         }
 
         .payer-btn.active {
-            border-color: #667eea;
-            background: #667eea;
+            border-color: #5b86e5;
+            background: #5b86e5;
             color: white;
         }
 
         .payer-btn.you.active {
-            border-color: #667eea;
-            background: #667eea;
+            border-color: #5b86e5;
+            background: #5b86e5;
         }
 
         .payer-btn.partner.active {
-            border-color: #e91e8e;
-            background: #e91e8e;
+            border-color: #ff6b9d;
+            background: #ff6b9d;
         }
 
         .preset-buttons {
@@ -444,26 +444,26 @@
 </head>
 <body>
     <div class="container">
-        <h1>💑 割り勘アプリ</h1>
+        <h1>💕 たつや ♡ レベッカ</h1>
 
         <!-- サマリー -->
         <div class="card">
             <h2>📊 現在の精算状況</h2>
             <div class="stats-grid">
                 <div class="stat-item">
-                    <div class="stat-label">あなたが払った</div>
+                    <div class="stat-label">たつやが払った</div>
                     <div class="stat-value you" id="youPaid">¥0</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-label">彼女が払った</div>
+                    <div class="stat-label">レベッカが払った</div>
                     <div class="stat-value partner" id="partnerPaid">¥0</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-label">あなたの負担額</div>
+                    <div class="stat-label">たつやの負担額</div>
                     <div class="stat-value you" id="youShare">¥0</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-label">彼女の負担額</div>
+                    <div class="stat-label">レベッカの負担額</div>
                     <div class="stat-value partner" id="partnerShare">¥0</div>
                 </div>
             </div>
@@ -499,18 +499,18 @@
                 <div class="form-group">
                     <label>支払った人</label>
                     <div class="payer-toggle" id="mainPayerToggle">
-                        <button type="button" class="payer-btn you active" data-payer="you">あなた</button>
-                        <button type="button" class="payer-btn partner" data-payer="partner">彼女</button>
+                        <button type="button" class="payer-btn you active" data-payer="you">たつや</button>
+                        <button type="button" class="payer-btn partner" data-payer="partner">レベッカ</button>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="form-group">
-                        <label>あなたの負担</label>
+                        <label>たつやの負担</label>
                         <input type="number" id="youAmount" placeholder="30000" required>
                     </div>
                     <div class="form-group">
-                        <label>彼女の負担</label>
+                        <label>レベッカの負担</label>
                         <input type="number" id="partnerAmount" placeholder="20000" required>
                     </div>
                 </div>
@@ -518,11 +518,11 @@
                 <div class="form-group">
                     <label>割合プリセット</label>
                     <div class="preset-buttons">
-                        <button type="button" class="preset-btn" onclick="setPreset('main', 100, 0)">あなた100%</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('main', 100, 0)">たつや100%</button>
                         <button type="button" class="preset-btn" onclick="setPreset('main', 50, 50)">半々</button>
                         <button type="button" class="preset-btn" onclick="setPreset('main', 60, 40)">6:4</button>
                         <button type="button" class="preset-btn" onclick="setPreset('main', 70, 30)">7:3</button>
-                        <button type="button" class="preset-btn" onclick="setPreset('main', 0, 100)">彼女100%</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('main', 0, 100)">レベッカ100%</button>
                     </div>
                 </div>
 
@@ -548,13 +548,13 @@
                 <button class="sync-btn" id="syncBtn" onclick="toggleSync()">🔗 リアルタイム同期を開始</button>
                 <div class="sync-status" id="syncStatus"></div>
                 <div class="room-display" id="roomDisplay" style="display: none;">
-                    <div class="room-label">同期ID（彼女に共有してね）</div>
+                    <div class="room-label">同期ID（レベッカに共有してね）</div>
                     <div class="room-id" id="roomId"></div>
                     <button style="margin-top: 8px; padding: 6px 12px; border: 1px solid #e65100; background: white; border-radius: 6px; cursor: pointer; font-size: 0.8rem;" onclick="copyRoomUrl()">📋 URLをコピー</button>
                 </div>
                 <div class="sync-info">
-                    💡 同期を開始すると、二人のデータがリアルタイムで共有されるよ！<br>
-                    片方が入力したら、もう片方にも自動で反映されます。
+                    💕 同期を開始すると、たつやとレベッカのデータがリアルタイムで共有されるよ！<br>
+                    どっちかが入力したら、もう片方にも自動で反映されます✨
                 </div>
             </div>
         </div>
@@ -585,18 +585,18 @@
                 <div class="form-group">
                     <label>支払った人</label>
                     <div class="payer-toggle" id="editPayerToggle">
-                        <button type="button" class="payer-btn you" data-payer="you">あなた</button>
-                        <button type="button" class="payer-btn partner" data-payer="partner">彼女</button>
+                        <button type="button" class="payer-btn you" data-payer="you">たつや</button>
+                        <button type="button" class="payer-btn partner" data-payer="partner">レベッカ</button>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="form-group">
-                        <label>あなたの負担</label>
+                        <label>たつやの負担</label>
                         <input type="number" id="editYouAmount" required>
                     </div>
                     <div class="form-group">
-                        <label>彼女の負担</label>
+                        <label>レベッカの負担</label>
                         <input type="number" id="editPartnerAmount" required>
                     </div>
                 </div>
@@ -604,11 +604,11 @@
                 <div class="form-group">
                     <label>割合プリセット</label>
                     <div class="preset-buttons">
-                        <button type="button" class="preset-btn" onclick="setPreset('edit', 100, 0)">あなた100%</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('edit', 100, 0)">たつや100%</button>
                         <button type="button" class="preset-btn" onclick="setPreset('edit', 50, 50)">半々</button>
                         <button type="button" class="preset-btn" onclick="setPreset('edit', 60, 40)">6:4</button>
                         <button type="button" class="preset-btn" onclick="setPreset('edit', 70, 30)">7:3</button>
-                        <button type="button" class="preset-btn" onclick="setPreset('edit', 0, 100)">彼女100%</button>
+                        <button type="button" class="preset-btn" onclick="setPreset('edit', 0, 100)">レベッカ100%</button>
                     </div>
                 </div>
 
@@ -791,9 +791,9 @@
         function copyRoomUrl() {
             const url = window.location.href;
             navigator.clipboard.writeText(url).then(() => {
-                updateSyncStatus('✅ URLをコピーしました！LINEで送ってね');
+                updateSyncStatus('✅ URLコピーしたよ！レベッカに送ってね💕');
             }).catch(() => {
-                prompt('このURLをコピーしてLINEで送ってね:', url);
+                prompt('このURLをレベッカに送ってね💕:', url);
             });
         }
 
@@ -891,16 +891,16 @@
                 summaryDetail.textContent = '支払いを登録してください';
                 settleBtn.style.display = 'none';
             } else if (balance > 0) {
-                summaryResult.textContent = `彼女 → あなた`;
-                summaryDetail.textContent = `彼女があなたに ${formatMoney(balance)} 払う`;
+                summaryResult.textContent = `レベッカ → たつや`;
+                summaryDetail.textContent = `レベッカがたつやに ${formatMoney(balance)} 払う💸`;
                 settleBtn.style.display = 'block';
             } else if (balance < 0) {
-                summaryResult.textContent = `あなた → 彼女`;
-                summaryDetail.textContent = `あなたが彼女に ${formatMoney(-balance)} 払う`;
+                summaryResult.textContent = `たつや → レベッカ`;
+                summaryDetail.textContent = `たつやがレベッカに ${formatMoney(-balance)} 払う💸`;
                 settleBtn.style.display = 'block';
             } else {
-                summaryResult.textContent = '精算済み ✓';
-                summaryDetail.textContent = '支払いは均等です';
+                summaryResult.textContent = '精算済み ✨';
+                summaryDetail.textContent = '二人仲良く均等だね💕';
                 settleBtn.style.display = payments.length > 0 ? 'block' : 'none';
             }
 
@@ -915,7 +915,7 @@
                         <div class="history-item">
                             <div class="history-info">
                                 <div class="history-title">${escapeHtml(p.description)}</div>
-                                <div class="history-meta">${formatDate(p.date)} • ${p.payer === 'you' ? 'あなた' : '彼女'}が支払い</div>
+                                <div class="history-meta">${formatDate(p.date)} • ${p.payer === 'you' ? 'たつや' : 'レベッカ'}が支払い</div>
                             </div>
                             <div class="history-amount">
                                 <div class="history-total">${formatMoney(p.total)}</div>
@@ -939,7 +939,7 @@
                     .slice(0, 5)
                     .map(s => `
                         <div class="settle-item">
-                            <span>${formatDate(s.date)} - ${s.payer === 'you' ? 'あなた' : '彼女'}が${s.receiver === 'you' ? 'あなた' : '彼女'}に ${formatMoney(s.amount)} 支払い</span>
+                            <span>${formatDate(s.date)} - ${s.payer === 'you' ? 'たつや' : 'レベッカ'}が${s.receiver === 'you' ? 'たつや' : 'レベッカ'}に ${formatMoney(s.amount)} 支払い</span>
                             <button onclick="undoSettle(${s.id})" title="取り消し">↩️</button>
                         </div>
                     `).join('');
@@ -1026,9 +1026,9 @@
             const amountInput = document.getElementById('settleAmount');
 
             if (balance > 0) {
-                label.textContent = `彼女があなたに払う金額`;
+                label.textContent = `レベッカがたつやに払う金額`;
             } else {
-                label.textContent = `あなたが彼女に払う金額`;
+                label.textContent = `たつやがレベッカに払う金額`;
             }
             amountInput.value = Math.abs(balance);
 
