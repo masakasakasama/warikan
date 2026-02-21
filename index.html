@@ -440,6 +440,46 @@
             color: #666;
             margin-bottom: 4px;
         }
+
+        .direct-pay-section {
+            margin-bottom: 16px;
+            background: #fff0f5;
+            border-radius: 12px;
+            padding: 14px;
+            border: 1px solid #ffd6e7;
+        }
+
+        .direct-pay-section .section-title {
+            font-size: 0.85rem;
+            color: #c44569;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .direct-pay-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .direct-pay-btn {
+            flex: 1;
+            padding: 10px 8px;
+            border: 2px solid #ff6b9d;
+            background: white;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #c44569;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .direct-pay-btn:hover {
+            background: #ff6b9d;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -479,6 +519,22 @@
         <!-- 支払い登録 -->
         <div class="card">
             <h2>➕ 支払いを登録</h2>
+
+            <!-- 直接払いショートカット -->
+            <div class="direct-pay-section">
+                <div class="section-title">⚡ 直接払いショートカット</div>
+                <div class="direct-pay-buttons">
+                    <button type="button" class="direct-pay-btn" onclick="setDirectPay('tatsuya')">
+                        たつや → レベッカ<br>
+                        <span style="font-size:0.7rem;font-weight:400;">たつやが全額払う</span>
+                    </button>
+                    <button type="button" class="direct-pay-btn" onclick="setDirectPay('rebecca')">
+                        レベッカ → たつや<br>
+                        <span style="font-size:0.7rem;font-weight:400;">レベッカが全額払う</span>
+                    </button>
+                </div>
+            </div>
+
             <form id="paymentForm">
                 <div class="row">
                     <div class="form-group">
@@ -818,6 +874,47 @@
             document.getElementById(partnerId).value = Math.round(total * partnerPercent / 100);
         }
 
+        // 直接払いショートカット
+        function setDirectPay(direction) {
+            const amountStr = prompt('金額を入力してください（円）:');
+            if (!amountStr) return;
+            const amount = parseInt(amountStr);
+            if (!amount || amount <= 0) {
+                alert('正しい金額を入力してください。');
+                return;
+            }
+
+            const desc = document.getElementById('description');
+            const total = document.getElementById('total');
+            const youAmt = document.getElementById('youAmount');
+            const partnerAmt = document.getElementById('partnerAmount');
+
+            total.value = amount;
+
+            if (direction === 'tatsuya') {
+                // たつや → レベッカ: たつやが払う、レベッカが全額負担
+                // → レベッカがたつやに返す必要あり
+                desc.value = desc.value || '直接払い（たつや→レベッカ）';
+                youAmt.value = 0;
+                partnerAmt.value = amount;
+                document.querySelectorAll('#mainPayerToggle .payer-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.payer === 'you');
+                });
+            } else {
+                // レベッカ → たつや: レベッカが払う、たつやが全額負担
+                // → たつやがレベッカに返す必要あり
+                desc.value = desc.value || '直接払い（レベッカ→たつや）';
+                youAmt.value = amount;
+                partnerAmt.value = 0;
+                document.querySelectorAll('#mainPayerToggle .payer-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.payer === 'partner');
+                });
+            }
+
+            document.getElementById('date').valueAsDate = new Date();
+            document.getElementById('paymentForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
         // 総額変更時に負担額を自動計算（半々デフォルト）
         document.getElementById('total').addEventListener('input', function() {
             const total = parseInt(this.value) || 0;
@@ -919,7 +1016,7 @@
                             </div>
                             <div class="history-amount">
                                 <div class="history-total">${formatMoney(p.total)}</div>
-                                <div class="history-split">あなた${formatMoney(p.youAmount)} / 彼女${formatMoney(p.partnerAmount)}</div>
+                                <div class="history-split">たつや${formatMoney(p.youAmount)} / レベッカ${formatMoney(p.partnerAmount)}</div>
                             </div>
                             <div class="history-actions">
                                 <button onclick="openEditModal(${p.id})" title="編集">✏️</button>
