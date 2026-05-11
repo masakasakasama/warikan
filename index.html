@@ -931,7 +931,7 @@
         currentRoomId: null,    // which tricount is open
         currentData: null,      // full tricount snapshot
         syncStatus: 'idle',     // 'idle' | 'online' | 'syncing' | 'offline' | 'error'
-        currentRef: null,       // Firebase ref for active subscription
+        subs: {},               // roomId -> Firebase ref (always-on background subscriptions)
         suppressSync: false,    // flag to prevent loop on remote update
         pendingJoinRoom: null,  // roomId from URL waiting for participant choice
     };
@@ -1045,25 +1045,35 @@
     }
 
     // ------------------------------------------------------------------
-    // Firebase sync layer
+    // Firebase sync layer (always-on background subscriptions)
     // ------------------------------------------------------------------
-    function detachCurrentRoom() {
-        if (state.currentRef) {
-            state.currentRef.off();
-            state.currentRef = null;
-        }
-    }
-
-    function attachRoom(roomId, onData) {
-        detachCurrentRoom();
-        state.syncStatus = 'syncing';
+    function subscribeRoom(roomId) {
+        if (state.subs[roomId]) return; // already subscribed
         const ref = db.ref('rooms/' + roomId);
-        state.currentRef = ref;
+        state.subs[roomId] = ref;
+        if (state.syncStatus === 'idle') state.syncStatus = 'syncing';
         ref.on('value', (snap) => {
             const v = snap.val();
-            state.suppressSync = true;
-            try { onData(v); }
-            finally { state.suppressSync = false; }
+            if (v) {
+                // Always update cache
+                saveRoomSnapshot(roomId, v);
+                // Update tricount metadata
+                const m = state.tricounts.find(t => t.roomId === roomId);
+                if (m) {
+                    m.name = v.name;
+                    m.emoji = v.emoji;
+                    m.description = v.description;
+                    m.currency = v.currency;
+                    m.lastUpdated = v.updatedAt;
+                    saveTricounts();
+                }
+                // If currently viewing this room, refresh the open data
+                if (state.currentRoomId === roomId) {
+                    state.suppressSync = true;
+                    state.currentData = v;
+                    state.suppressSync = false;
+                }
+            }
             state.syncStatus = 'online';
             render();
         }, (err) => {
@@ -1071,6 +1081,17 @@
             state.syncStatus = 'offline';
             render();
         });
+    }
+
+    function unsubscribeRoom(roomId) {
+        if (state.subs[roomId]) {
+            state.subs[roomId].off();
+            delete state.subs[roomId];
+        }
+    }
+
+    function subscribeAllRooms() {
+        state.tricounts.forEach(meta => subscribeRoom(meta.roomId));
     }
 
     function pushCurrentRoom() {
@@ -1133,6 +1154,8 @@
             console.error('Initial push failed', e);
             showToast('オフラインで作成（再接続時に同期）');
         });
+        // Start always-on subscription
+        subscribeRoom(roomId);
         return meta;
     }
 
@@ -1149,36 +1172,17 @@
             expenses: [], settlements: [], updatedAt: 0
         };
         state.view = 'tricount';
+        // Make sure subscription is active (background subscription should already be on)
+        subscribeRoom(roomId);
         render();
-        // Subscribe and update
-        attachRoom(roomId, (remote) => {
-            if (!remote) return; // empty room, keep local
-            // Merge: prefer remote (server is source of truth, our writes already on remote)
-            state.currentData = remote;
-            saveRoomSnapshot(roomId, remote);
-            // Update tricount meta in case name/emoji changed
-            const m = state.tricounts.find(t => t.roomId === roomId);
-            if (m) {
-                m.name = remote.name;
-                m.emoji = remote.emoji;
-                m.description = remote.description;
-                m.currency = remote.currency;
-                m.lastUpdated = remote.updatedAt;
-                saveTricounts();
-            }
-        });
     }
 
     function exitTricount() {
-        detachCurrentRoom();
+        // Keep the subscription alive so it keeps syncing in the background.
+        // Do NOT touch the URL — the share link must stay stable.
         state.currentRoomId = null;
         state.currentData = null;
         state.view = 'home';
-        state.syncStatus = 'idle';
-        // Clear room param from URL
-        const url = new URL(window.location);
-        url.searchParams.delete('room');
-        window.history.replaceState({}, '', url);
         render();
     }
 
@@ -1249,7 +1253,7 @@
     }
 
     function deleteTricount(roomId) {
-        if (state.currentRoomId === roomId) detachCurrentRoom();
+        unsubscribeRoom(roomId);
         state.tricounts = state.tricounts.filter(t => t.roomId !== roomId);
         saveTricounts();
         deleteRoomSnapshot(roomId);
@@ -1405,9 +1409,7 @@
     // ------------------------------------------------------------------
     // Join via shared link
     // ------------------------------------------------------------------
-    async function tryJoinFromUrl() {
-        const params = new URLSearchParams(window.location.search);
-        const roomId = params.get('room');
+    async function joinByRoomId(roomId) {
         if (!roomId) return;
         // If already in our list, just open it
         const existing = state.tricounts.find(t => t.roomId === roomId);
@@ -1427,7 +1429,6 @@
                 return;
             }
             const remote = snap.val();
-            // Cache it
             saveRoomSnapshot(roomId, remote);
             state.pendingJoinRoom = { roomId, data: remote };
             state.sheet = 'joinPick';
@@ -1438,6 +1439,12 @@
             state.syncStatus = 'offline';
             render();
         }
+    }
+
+    function tryJoinFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const roomId = params.get('room');
+        if (roomId) joinByRoomId(roomId);
     }
 
     function completeJoin(participantId) {
@@ -1454,6 +1461,8 @@
         };
         state.tricounts.unshift(meta);
         saveTricounts();
+        // Start always-on subscription for this room
+        subscribeRoom(join.roomId);
         state.pendingJoinRoom = null;
         state.sheet = null;
         openTricount(join.roomId);
@@ -1493,21 +1502,52 @@
     // ---- Home ----
     function renderHome() {
         const items = state.tricounts.length > 0
-            ? state.tricounts.map(t => `
+            ? state.tricounts.map(t => {
+                const cache = loadRoomSnapshot(t.roomId);
+                let preview = t.description || ' ';
+                let previewColor = '';
+                if (cache) {
+                    const cur = cache.currency || t.currency || 'JPY';
+                    const balances = computeBalances(cache);
+                    const bal = balances[t.myId] || 0;
+                    const hasItems = (cache.expenses || []).length > 0 || (cache.settlements || []).length > 0;
+                    if (!hasItems) {
+                        preview = t.description || 'まだ支払いなし';
+                    } else if (Math.abs(bal) < 0.01) {
+                        preview = '✓ 精算済み';
+                        previewColor = 'color: var(--success);';
+                    } else if (bal > 0) {
+                        preview = `+${formatMoney(bal, cur)} もらえる`;
+                        previewColor = 'color: var(--success);';
+                    } else {
+                        preview = `${formatMoney(bal, cur)} 払う`;
+                        previewColor = 'color: var(--danger);';
+                    }
+                }
+                return `
                 <div class="tricount-card pressable" data-action="open-tricount" data-room="${escapeAttr(t.roomId)}">
                     <div class="tricount-emoji">${escapeHtml(t.emoji || '💰')}</div>
                     <div class="tricount-info">
                         <div class="tricount-name">${escapeHtml(t.name)}</div>
-                        <div class="tricount-desc">${escapeHtml(t.description || ' ')}</div>
+                        <div class="tricount-desc" style="${previewColor}">${escapeHtml(preview)}</div>
                     </div>
                     <div class="tricount-arrow">›</div>
                 </div>
-            `).join('')
+                `;
+            }).join('')
             : `<div class="empty-state">
                 <div class="emoji">💰</div>
                 <div class="title">トリカウントはまだないよ</div>
                 <div>下の＋から最初のグループを作ろう</div>
               </div>`;
+
+        const syncCls = state.syncStatus === 'online' ? 'online'
+            : state.syncStatus === 'syncing' ? 'syncing'
+            : state.syncStatus === 'offline' ? 'offline' : '';
+        const syncText = state.syncStatus === 'online' ? '常時同期中'
+            : state.syncStatus === 'syncing' ? '接続中…'
+            : state.syncStatus === 'offline' ? 'オフライン（再接続待ち）'
+            : '同期準備中';
 
         return `
             <div class="screen">
@@ -1516,6 +1556,7 @@
                     <div class="brand-sub">by you ♡ her</div>
                 </div>
                 <div class="scroll">
+                    ${state.tricounts.length > 0 ? `<div style="margin-bottom:10px;"><span class="sync-pill ${syncCls}"><span class="dot"></span>${escapeHtml(syncText)}</span></div>` : ''}
                     ${items}
                 </div>
                 <div class="fab-wrap">
@@ -2531,10 +2572,6 @@
             case 'cancel-join': {
                 state.pendingJoinRoom = null;
                 state.sheet = null;
-                // Clean URL
-                const url = new URL(window.location);
-                url.searchParams.delete('room');
-                window.history.replaceState({}, '', url);
                 render();
                 break;
             }
@@ -2550,11 +2587,7 @@
                 if (!code) return showToast('IDを入れてね');
                 state.sheet = null;
                 state.sheetData = null;
-                // Trigger join flow
-                const url = new URL(window.location);
-                url.searchParams.set('room', code);
-                window.history.replaceState({}, '', url);
-                tryJoinFromUrl();
+                joinByRoomId(code);
                 break;
             }
             case 'show-help': {
@@ -2624,15 +2657,22 @@
     function boot() {
         state.tricounts = loadTricounts();
         migrateLegacy();
+        // Always-on: subscribe to every tricount in the background
+        subscribeAllRooms();
         render();
         tryJoinFromUrl();
 
         // Online/offline detection
         window.addEventListener('online', () => {
-            if (state.currentRoomId && state.currentData) {
-                state.syncStatus = 'syncing';
-                pushCurrentRoom();
-            }
+            state.syncStatus = 'syncing';
+            // Re-subscribe everything to force a refresh
+            Object.keys(state.subs).forEach(rid => {
+                state.subs[rid].off();
+                delete state.subs[rid];
+            });
+            subscribeAllRooms();
+            if (state.currentRoomId && state.currentData) pushCurrentRoom();
+            render();
         });
         window.addEventListener('offline', () => {
             state.syncStatus = 'offline';
