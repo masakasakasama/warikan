@@ -2,1223 +2,2645 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💕 たつや＆レベッカの割り勘</title>
-    <!-- Firebase SDK -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>warikan</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
     <style>
+        :root {
+            --bg: #000000;
+            --bg-elev: #1c1c1e;
+            --bg-elev-2: #2c2c2e;
+            --bg-input: #1c1c1e;
+            --border: #38383a;
+            --text: #ffffff;
+            --text-secondary: #8e8e93;
+            --text-tertiary: #636366;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-soft: rgba(37, 99, 235, 0.15);
+            --success: #34c759;
+            --danger: #ff3b30;
+            --warning: #ff9500;
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 50%, #a18cd1 100%);
-            min-height: 100vh;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 16px;
+            line-height: 1.4;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
+        button, input, select, textarea {
+            font-family: inherit;
+            font-size: inherit;
+            color: inherit;
         }
 
-        h1 {
-            color: white;
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 1.8rem;
+        button {
+            cursor: pointer;
+            background: none;
+            border: none;
         }
 
-        .card {
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        input, select, textarea {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 12px;
+            padding: 14px 16px;
+            outline: none;
+            width: 100%;
+            transition: border-color 0.15s;
         }
 
-        .card h2 {
-            font-size: 1.1rem;
-            color: #333;
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #ff6b9d;
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
         }
 
-        .form-group {
-            margin-bottom: 14px;
+        input[type="number"] { -moz-appearance: textfield; }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
 
-        label {
-            display: block;
-            font-size: 0.9rem;
-            color: #555;
-            margin-bottom: 6px;
+        #app {
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            overflow: hidden;
+        }
+
+        /* Top bar */
+        .topbar {
+            display: flex;
+            align-items: center;
+            padding: calc(var(--safe-top) + 12px) 16px 12px;
+            min-height: calc(var(--safe-top) + 56px);
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .topbar-back {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: -8px;
+            color: var(--text);
+            font-size: 24px;
+        }
+
+        .topbar-title {
+            flex: 1;
+            font-size: 20px;
+            font-weight: 600;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .topbar-action {
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 16px;
+            padding: 8px 4px;
+        }
+
+        .topbar-action.icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+            font-size: 22px;
+        }
+
+        /* Brand header for home */
+        .brand {
+            padding: calc(var(--safe-top) + 16px) 20px 16px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .brand-logo {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        .brand-sub {
+            font-size: 14px;
+            color: var(--text-secondary);
             font-weight: 500;
         }
 
-        input, select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 1rem;
-            transition: border-color 0.2s;
-        }
-
-        input:focus, select:focus {
-            outline: none;
-            border-color: #ff6b9d;
-        }
-
-        .row {
-            display: flex;
-            gap: 12px;
-        }
-
-        .row .form-group {
+        .scroll {
             flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 0 16px calc(var(--safe-bottom) + 100px);
         }
 
-        .btn {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
-        }
-
-        .btn:active {
-            transform: translateY(0);
-        }
-
-        .btn-settle {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            margin-top: 16px;
-        }
-
-        .summary-box {
-            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
-            border-radius: 12px;
-            padding: 20px;
-            color: white;
-            text-align: center;
-        }
-
-        .summary-result {
-            font-size: 1.4rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-
-        .summary-detail {
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-
-        .stat-item {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 14px;
-            text-align: center;
-        }
-
-        .stat-label {
-            font-size: 0.8rem;
-            color: #666;
-            margin-bottom: 4px;
-        }
-
-        .stat-value {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #333;
-        }
-
-        .stat-value.you { color: #5b86e5; }
-        .stat-value.partner { color: #ff6b9d; }
-
-        .history-item {
+        /* Tricount list card */
+        .tricount-card {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 14px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            margin-bottom: 10px;
+            gap: 14px;
+            background: var(--bg-elev);
+            border-radius: 16px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: background 0.1s;
         }
 
-        .history-info {
+        .tricount-card:active {
+            background: var(--bg-elev-2);
+        }
+
+        .tricount-emoji {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            background: var(--bg-elev-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            flex-shrink: 0;
+        }
+
+        .tricount-info {
             flex: 1;
+            min-width: 0;
         }
 
-        .history-title {
+        .tricount-name {
+            font-size: 17px;
             font-weight: 600;
-            color: #333;
             margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .history-meta {
-            font-size: 0.8rem;
-            color: #888;
+        .tricount-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .history-amount {
-            text-align: right;
+        .tricount-arrow {
+            color: var(--text-tertiary);
+            font-size: 20px;
+            margin-left: 4px;
         }
 
-        .history-total {
-            font-weight: 700;
-            color: #333;
-            margin-bottom: 2px;
-        }
-
-        .history-split {
-            font-size: 0.75rem;
-            color: #888;
-        }
-
-        .history-actions {
+        /* Floating add */
+        .fab-wrap {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: calc(var(--safe-bottom) + 80px);
             display: flex;
-            gap: 8px;
-            margin-left: 12px;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
         }
 
-        .history-actions button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 1.1rem;
-            padding: 4px;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: #888;
-            padding: 30px;
-        }
-
-        .payer-toggle {
+        .fab {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: #fff;
+            font-size: 32px;
             display: flex;
-            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
+            pointer-events: auto;
         }
 
-        .payer-btn {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            background: white;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: all 0.2s;
+        .fab:active { background: var(--primary-hover); }
+
+        .fab-label {
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
         }
 
-        .payer-btn.active {
-            border-color: #5b86e5;
-            background: #5b86e5;
-            color: white;
-        }
-
-        .payer-btn.you.active {
-            border-color: #5b86e5;
-            background: #5b86e5;
-        }
-
-        .payer-btn.partner.active {
-            border-color: #ff6b9d;
-            background: #ff6b9d;
-        }
-
-        .preset-buttons {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-            flex-wrap: wrap;
-        }
-
-        .preset-btn {
-            padding: 6px 12px;
-            border: 1px solid #ddd;
-            background: #f5f5f5;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            cursor: pointer;
-        }
-
-        .preset-btn:hover {
-            background: #e0e0e0;
-        }
-
-        /* モーダル */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
+        /* Bottom navigation */
+        .bottom-nav {
+            position: absolute;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .modal-overlay.active {
             display: flex;
+            justify-content: space-around;
+            padding: 8px 0 calc(var(--safe-bottom) + 8px);
+            background: var(--bg);
+            border-top: 1px solid var(--border);
         }
 
-        .modal {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            width: 100%;
-            max-width: 400px;
-            max-height: 90vh;
-            overflow-y: auto;
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-secondary);
+            padding: 4px 12px;
+            min-width: 64px;
         }
 
-        .modal h3 {
-            margin-bottom: 20px;
-            color: #333;
-            font-size: 1.2rem;
+        .bottom-nav-item.active { color: var(--primary); }
+        .bottom-nav-icon { font-size: 22px; line-height: 1; }
+        .bottom-nav-label { font-size: 11px; font-weight: 500; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0;
+            background: var(--bg-elev);
+            border-radius: 999px;
+            padding: 4px;
+            margin: 0 0 20px;
         }
 
-        .modal-buttons {
+        .tab {
+            flex: 1;
+            padding: 10px 8px;
+            text-align: center;
+            border-radius: 999px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.15s;
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        /* Form */
+        .form-section { margin-bottom: 18px; }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .form-row {
             display: flex;
             gap: 10px;
-            margin-top: 20px;
+            align-items: stretch;
         }
 
-        .modal-buttons .btn {
+        .form-row > * { flex: 1; min-width: 0; }
+
+        .input-with-icons {
+            position: relative;
+            display: flex;
+            gap: 10px;
+        }
+        .input-with-icons > input { flex: 1; }
+        .icon-btn {
+            width: 52px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 22px;
+        }
+
+        .currency-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .currency-select {
+            width: 90px;
+            flex: 0 0 auto;
+        }
+
+        .amount-input {
             flex: 1;
+            font-size: 18px;
+            font-weight: 600;
         }
 
-        .btn-cancel {
-            background: #e0e0e0;
-            color: #333;
+        .select-wrap {
+            position: relative;
+        }
+        .select-wrap select {
+            appearance: none;
+            -webkit-appearance: none;
+            padding-right: 36px;
+        }
+        .select-wrap::after {
+            content: '⌄';
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-65%);
+            color: var(--text-secondary);
+            pointer-events: none;
+            font-size: 18px;
         }
 
-        .btn-cancel:hover {
-            background: #d0d0d0;
-            box-shadow: none;
-            transform: none;
+        /* Primary button */
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            color: #fff;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.1s;
+        }
+        .btn-primary:active { background: var(--primary-hover); }
+        .btn-primary:disabled {
+            background: var(--bg-elev-2);
+            color: var(--text-tertiary);
         }
 
-        .settle-history {
-            margin-top: 20px;
-            padding-top: 16px;
-            border-top: 1px solid #eee;
+        .btn-secondary {
+            width: 100%;
+            padding: 14px;
+            background: var(--bg-elev);
+            color: var(--text);
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            border: 1px solid var(--border);
         }
 
-        .settle-history h3 {
-            font-size: 0.9rem;
-            color: #666;
+        .btn-danger {
+            width: 100%;
+            padding: 14px;
+            background: transparent;
+            color: var(--danger);
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            border: 1px solid var(--danger);
+        }
+
+        /* Split section */
+        .split-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             margin-bottom: 12px;
         }
 
-        .settle-item {
-            background: #e8f5e9;
-            padding: 10px 14px;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            font-size: 0.85rem;
-            color: #2e7d32;
+        .split-toggle {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 12px;
         }
 
-        .settle-item button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 0.9rem;
-            padding: 4px;
-            opacity: 0.7;
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 2px solid var(--border);
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 14px;
+            flex-shrink: 0;
+            transition: all 0.1s;
         }
 
-        .settle-item button:hover {
-            opacity: 1;
+        .checkbox.checked {
+            background: var(--primary);
+            border-color: var(--primary);
         }
 
-        .sync-section {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid #eee;
+        .split-mode {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 14px;
+            padding: 6px 4px;
         }
 
-        .sync-btn {
-            width: 100%;
-            padding: 12px;
-            background: #ff9800;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
+        .split-list {
+            background: var(--bg-elev);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .split-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .split-row:last-child { border-bottom: none; }
+
+        .split-name {
+            flex: 1;
+            font-weight: 500;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .split-amount {
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .split-amount-input {
+            width: 110px;
+            text-align: right;
+            padding: 8px 12px;
+            font-size: 15px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Balance summary */
+        .balance-card {
+            background: var(--bg-elev);
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 14px;
+        }
+
+        .balance-title {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             margin-bottom: 8px;
         }
 
-        .sync-btn:hover {
-            background: #f57c00;
-        }
-
-        .sync-btn.connected {
-            background: #4caf50;
-        }
-
-        .sync-btn.connected:hover {
-            background: #43a047;
-        }
-
-        .sync-status {
-            text-align: center;
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 8px;
-        }
-
-        .sync-status.success {
-            color: #4caf50;
-        }
-
-        .sync-status.syncing {
-            color: #ff9800;
-        }
-
-        .sync-info {
-            background: #e3f2fd;
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 10px;
-            font-size: 0.85rem;
-            color: #1565c0;
-        }
-
-        .room-display {
-            background: #fff3e0;
-            border-radius: 8px;
-            padding: 10px;
-            margin-top: 10px;
-            text-align: center;
-        }
-
-        .room-id {
-            font-family: monospace;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #e65100;
-            letter-spacing: 2px;
-        }
-
-        .room-label {
-            font-size: 0.75rem;
-            color: #666;
+        .balance-headline {
+            font-size: 22px;
+            font-weight: 700;
             margin-bottom: 4px;
         }
 
-        .direct-pay-section {
-            margin-bottom: 16px;
-            background: #fff0f5;
-            border-radius: 12px;
-            padding: 14px;
-            border: 1px solid #ffd6e7;
+        .balance-detail {
+            color: var(--text-secondary);
+            font-size: 14px;
         }
 
-        .direct-pay-section .section-title {
-            font-size: 0.85rem;
-            color: #c44569;
-            font-weight: 600;
-            margin-bottom: 10px;
-        }
-
-        .direct-pay-buttons {
+        .balance-list {
+            margin-top: 12px;
             display: flex;
+            flex-direction: column;
             gap: 8px;
         }
 
-        .direct-pay-btn {
-            flex: 1;
-            padding: 10px 8px;
-            border: 2px solid #ff6b9d;
-            background: white;
+        .balance-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: var(--bg-elev-2);
             border-radius: 10px;
-            font-size: 0.8rem;
+            font-size: 14px;
+        }
+        .balance-row .name { color: var(--text); font-weight: 500; }
+        .balance-row .amt { font-variant-numeric: tabular-nums; font-weight: 600; }
+        .balance-row .amt.pos { color: var(--success); }
+        .balance-row .amt.neg { color: var(--danger); }
+
+        /* Expense list */
+        .section-title {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 18px 4px 10px;
             font-weight: 600;
-            color: #c44569;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-align: center;
-            line-height: 1.4;
         }
 
-        .direct-pay-btn:hover {
-            background: #ff6b9d;
-            color: white;
+        .expense-group {
+            background: var(--bg-elev);
+            border-radius: 16px;
+            margin-bottom: 14px;
+            overflow: hidden;
+        }
+
+        .expense-group-date {
+            font-size: 12px;
+            color: var(--text-secondary);
+            padding: 10px 16px;
+            background: var(--bg-elev-2);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .expense-row {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+        .expense-row:last-child { border-bottom: none; }
+        .expense-row:active { background: var(--bg-elev-2); }
+
+        .expense-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--bg-elev-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .expense-icon.income { background: rgba(52,199,89,0.15); }
+        .expense-icon.transfer { background: rgba(255,149,0,0.15); }
+
+        .expense-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .expense-title {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .expense-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .expense-amount {
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            font-size: 15px;
+        }
+
+        .expense-amount.income { color: var(--success); }
+        .expense-amount.transfer { color: var(--warning); }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state .emoji {
+            font-size: 56px;
+            margin-bottom: 12px;
+        }
+        .empty-state .title {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 17px;
+            margin-bottom: 6px;
+        }
+
+        /* Sync status pill */
+        .sync-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: var(--bg-elev-2);
+            border-radius: 999px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .sync-pill .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-tertiary);
+        }
+        .sync-pill.online .dot { background: var(--success); }
+        .sync-pill.syncing .dot { background: var(--warning); }
+        .sync-pill.offline .dot { background: var(--danger); }
+
+        /* Participants chips */
+        .chip-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        .chip button {
+            color: var(--text-secondary);
+            font-size: 18px;
+            line-height: 1;
+            padding: 0 0 0 4px;
+        }
+
+        .chip-add-input {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .chip-add-input input { flex: 1; }
+        .chip-add-input button {
+            padding: 0 18px;
+            background: var(--primary);
+            color: #fff;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: calc(var(--safe-bottom) + 24px);
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-elev-2);
+            color: var(--text);
+            padding: 12px 18px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            opacity: 0;
+            transition: all 0.25s;
+            z-index: 1000;
+            pointer-events: none;
+            max-width: 80%;
+            text-align: center;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Sheet (modal) */
+        .sheet-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .sheet-backdrop.show { opacity: 1; }
+
+        .sheet {
+            width: 100%;
+            max-width: 540px;
+            background: var(--bg);
+            border-radius: 20px 20px 0 0;
+            padding: 8px 20px calc(var(--safe-bottom) + 24px);
+            transform: translateY(100%);
+            transition: transform 0.25s;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .sheet-backdrop.show .sheet { transform: translateY(0); }
+
+        .sheet-handle {
+            width: 40px;
+            height: 5px;
+            background: var(--border);
+            border-radius: 999px;
+            margin: 8px auto 16px;
+        }
+
+        .sheet-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        /* Emoji picker grid */
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .emoji-grid button {
+            font-size: 24px;
+            padding: 8px;
+            border-radius: 8px;
+            background: var(--bg-elev);
+        }
+        .emoji-grid button.selected {
+            background: var(--primary-soft);
+            outline: 2px solid var(--primary);
+        }
+
+        /* Share */
+        .share-link-box {
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 13px;
+            color: var(--text-secondary);
+            word-break: break-all;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .room-pill {
+            display: inline-block;
+            padding: 6px 12px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            border-radius: 8px;
+            font-family: ui-monospace, monospace;
+            font-weight: 600;
+            font-size: 16px;
+            letter-spacing: 1px;
+        }
+
+        /* Settle list inline */
+        .settle-mini {
+            background: rgba(52,199,89,0.1);
+            border: 1px solid rgba(52,199,89,0.3);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 13px;
+            color: var(--success);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .settle-mini button {
+            color: var(--success);
+            font-size: 16px;
+            opacity: 0.7;
+            padding: 0 4px;
+        }
+
+        a { color: var(--primary); text-decoration: none; }
+
+        /* Hide spinner arrows on number input - already done above */
+
+        /* Long-press feedback */
+        .pressable:active { opacity: 0.6; }
+
+        /* Error message */
+        .error-msg {
+            color: var(--danger);
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        /* Helper text */
+        .helper {
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-top: 6px;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>💕 たつや ♡ レベッカ</h1>
-
-        <!-- サマリー -->
-        <div class="card">
-            <h2>📊 現在の精算状況</h2>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <div class="stat-label">たつやが払った</div>
-                    <div class="stat-value you" id="youPaid">¥0</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">レベッカが払った</div>
-                    <div class="stat-value partner" id="partnerPaid">¥0</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">たつやの負担額</div>
-                    <div class="stat-value you" id="youShare">¥0</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">レベッカの負担額</div>
-                    <div class="stat-value partner" id="partnerShare">¥0</div>
-                </div>
-            </div>
-            <div class="summary-box">
-                <div class="summary-result" id="summaryResult">精算なし</div>
-                <div class="summary-detail" id="summaryDetail">支払いを登録してください</div>
-            </div>
-            <button class="btn btn-settle" id="settleBtn" style="display: none;" onclick="openSettleModal()">
-                💰 精算してリセット
-            </button>
-        </div>
-
-        <!-- 支払い登録 -->
-        <div class="card">
-            <h2>➕ 支払いを登録</h2>
-
-            <!-- 直接払いショートカット -->
-            <div class="direct-pay-section">
-                <div class="section-title">⚡ 直接払いショートカット</div>
-                <div class="direct-pay-buttons">
-                    <button type="button" class="direct-pay-btn" onclick="setDirectPay('tatsuya')">
-                        たつや → レベッカ<br>
-                        <span style="font-size:0.7rem;font-weight:400;">たつやが全額払う</span>
-                    </button>
-                    <button type="button" class="direct-pay-btn" onclick="setDirectPay('rebecca')">
-                        レベッカ → たつや<br>
-                        <span style="font-size:0.7rem;font-weight:400;">レベッカが全額払う</span>
-                    </button>
-                </div>
-            </div>
-
-            <form id="paymentForm">
-                <div class="row">
-                    <div class="form-group">
-                        <label>日付</label>
-                        <input type="date" id="date" required>
-                    </div>
-                    <div class="form-group">
-                        <label>内容</label>
-                        <input type="text" id="description" placeholder="例: 食事、テレビ" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>総額</label>
-                    <input type="number" id="total" placeholder="50000" required>
-                </div>
-
-                <div class="form-group">
-                    <label>支払った人</label>
-                    <div class="payer-toggle" id="mainPayerToggle">
-                        <button type="button" class="payer-btn you active" data-payer="you">たつや</button>
-                        <button type="button" class="payer-btn partner" data-payer="partner">レベッカ</button>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="form-group">
-                        <label>たつやの負担</label>
-                        <input type="number" id="youAmount" placeholder="30000" required>
-                    </div>
-                    <div class="form-group">
-                        <label>レベッカの負担</label>
-                        <input type="number" id="partnerAmount" placeholder="20000" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>割合プリセット</label>
-                    <div class="preset-buttons">
-                        <button type="button" class="preset-btn" onclick="setPreset('main', 100, 0)">たつや100%</button>
-                        <button type="button" class="preset-btn" onclick="setPreset('main', 50, 50)">半々</button>
-                        <button type="button" class="preset-btn" onclick="setPreset('main', 60, 40)">6:4</button>
-                        <button type="button" class="preset-btn" onclick="setPreset('main', 70, 30)">7:3</button>
-                        <button type="button" class="preset-btn" onclick="setPreset('main', 0, 100)">レベッカ100%</button>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn">登録する</button>
-            </form>
-        </div>
-
-        <!-- 履歴 -->
-        <div class="card">
-            <h2>📝 支払い履歴</h2>
-            <div id="historyList">
-                <div class="empty-state">まだ登録がありません</div>
-            </div>
-
-            <!-- 精算履歴 -->
-            <div class="settle-history" id="settleHistory" style="display: none;">
-                <h3>✅ 過去の精算</h3>
-                <div id="settleList"></div>
-            </div>
-
-            <!-- リアルタイム同期 -->
-            <div class="sync-section">
-                <button class="sync-btn" id="syncBtn" onclick="toggleSync()">🔗 リアルタイム同期を開始</button>
-                <div class="sync-status" id="syncStatus"></div>
-                <div class="room-display" id="roomDisplay" style="display: none;">
-                    <div class="room-label">同期ID（レベッカに共有してね）</div>
-                    <div class="room-id" id="roomId"></div>
-                    <button style="margin-top: 8px; padding: 6px 12px; border: 1px solid #e65100; background: white; border-radius: 6px; cursor: pointer; font-size: 0.8rem;" onclick="copyRoomUrl()">📋 URLをコピー</button>
-                </div>
-                <div class="sync-info">
-                    💕 同期を開始すると、たつやとレベッカのデータがリアルタイムで共有されるよ！<br>
-                    どっちかが入力したら、もう片方にも自動で反映されます✨
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 編集モーダル -->
-    <div class="modal-overlay" id="editModal">
-        <div class="modal">
-            <h3>✏️ 支払いを編集</h3>
-            <form id="editForm">
-                <input type="hidden" id="editId">
-                <div class="row">
-                    <div class="form-group">
-                        <label>日付</label>
-                        <input type="date" id="editDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label>内容</label>
-                        <input type="text" id="editDescription" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>総額</label>
-                    <input type="number" id="editTotal" required>
-                </div>
-
-                <div class="form-group">
-                    <label>支払った人</label>
-                    <div class="payer-toggle" id="editPayerToggle">
-                        <button type="button" class="payer-btn you" data-payer="you">たつや</button>
-                        <button type="button" class="payer-btn partner" data-payer="partner">レベッカ</button>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="form-group">
-                        <label>たつやの負担</label>
-                        <input type="number" id="editYouAmount" required>
-                    </div>
-                    <div class="form-group">
-                        <label>レベッカの負担</label>
-                        <input type="number" id="editPartnerAmount" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>割合プリセット</label>
-                    <div class="preset-buttons">
-                        <button type="button" class="preset-btn" onclick="setPreset('edit', 100, 0)">たつや100%</button>
-                        <button type="button" class="preset-btn" onclick="setPreset('edit', 50, 50)">半々</button>
-                        <button type="button" class="preset-btn" onclick="setPreset('edit', 60, 40)">6:4</button>
-                        <button type="button" class="preset-btn" onclick="setPreset('edit', 70, 30)">7:3</button>
-                        <button type="button" class="preset-btn" onclick="setPreset('edit', 0, 100)">レベッカ100%</button>
-                    </div>
-                </div>
-
-                <div class="modal-buttons">
-                    <button type="button" class="btn btn-cancel" onclick="closeEditModal()">キャンセル</button>
-                    <button type="submit" class="btn">保存</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- 精算モーダル -->
-    <div class="modal-overlay" id="settleModal">
-        <div class="modal">
-            <h3>💰 精算を記録</h3>
-            <p style="margin-bottom: 16px; color: #666;">精算が完了したら、支払った金額を入力してリセットしてください。</p>
-            <div class="form-group">
-                <label id="settleLabel">支払った金額</label>
-                <input type="number" id="settleAmount" required>
-            </div>
-            <div class="modal-buttons">
-                <button type="button" class="btn btn-cancel" onclick="closeSettleModal()">キャンセル</button>
-                <button type="button" class="btn btn-settle" onclick="confirmSettle()">精算完了</button>
-            </div>
-        </div>
-    </div>
+    <div id="app"></div>
+    <div class="toast" id="toast"></div>
 
     <script>
-        // Firebase 設定
-        const firebaseConfig = {
-            apiKey: "AIzaSyDBBD1W-zneFDNi1eZCtYqvyoXyJcmdk0k",
-            authDomain: "warikan-app-120fd.firebaseapp.com",
-            databaseURL: "https://warikan-app-120fd-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "warikan-app-120fd",
-            storageBucket: "warikan-app-120fd.firebasestorage.app",
-            messagingSenderId: "43289931875",
-            appId: "1:43289931875:web:ca26551e40da813b9e4856"
+    'use strict';
+
+    // ------------------------------------------------------------------
+    // Firebase
+    // ------------------------------------------------------------------
+    const firebaseConfig = {
+        apiKey: "AIzaSyDBBD1W-zneFDNi1eZCtYqvyoXyJcmdk0k",
+        authDomain: "warikan-app-120fd.firebaseapp.com",
+        databaseURL: "https://warikan-app-120fd-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "warikan-app-120fd",
+        storageBucket: "warikan-app-120fd.firebasestorage.app",
+        messagingSenderId: "43289931875",
+        appId: "1:43289931875:web:ca26551e40da813b9e4856"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // ------------------------------------------------------------------
+    // Constants
+    // ------------------------------------------------------------------
+    const CURRENCIES = {
+        JPY: { symbol: '¥', label: '¥ JPY', decimals: 0 },
+        USD: { symbol: '$', label: '$ USD', decimals: 2 },
+        EUR: { symbol: '€', label: '€ EUR', decimals: 2 },
+        GBP: { symbol: '£', label: '£ GBP', decimals: 2 },
+        KRW: { symbol: '₩', label: '₩ KRW', decimals: 0 },
+        CNY: { symbol: '¥', label: '¥ CNY', decimals: 2 },
+        TWD: { symbol: 'NT$', label: 'NT$ TWD', decimals: 0 },
+    };
+
+    const EMOJI_PRESETS = ['💕','🏖️','🐻','🍣','🍕','🍺','✈️','🏠','🚗','🛒','🎂','🎁','🎬','🎮','🏟️','🏔️','🌸','☕','🍱','🍜','🍰','🥂','🎯','📚','💼','🛍️','💰','🏨','🚆','⛺','🌊','🌃'];
+
+    const STORAGE_KEYS = {
+        tricounts: 'warikan_v2_tricounts',
+        roomPrefix: 'warikan_v2_room_',
+        legacyMigrated: 'warikan_v2_legacy_migrated',
+    };
+
+    // ------------------------------------------------------------------
+    // State
+    // ------------------------------------------------------------------
+    const state = {
+        view: 'home',           // 'home' | 'tricount'
+        sheet: null,            // sheet name when modal open
+        sheetData: null,        // arbitrary data for sheet
+        tricounts: [],          // [{ roomId, name, emoji, description, myId, currency, lastUpdated }]
+        currentRoomId: null,    // which tricount is open
+        currentData: null,      // full tricount snapshot
+        syncStatus: 'idle',     // 'idle' | 'online' | 'syncing' | 'offline' | 'error'
+        currentRef: null,       // Firebase ref for active subscription
+        suppressSync: false,    // flag to prevent loop on remote update
+        pendingJoinRoom: null,  // roomId from URL waiting for participant choice
+    };
+
+    // ------------------------------------------------------------------
+    // Local storage helpers
+    // ------------------------------------------------------------------
+    function loadTricounts() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEYS.tricounts);
+            return raw ? JSON.parse(raw) : [];
+        } catch { return []; }
+    }
+    function saveTricounts() {
+        localStorage.setItem(STORAGE_KEYS.tricounts, JSON.stringify(state.tricounts));
+    }
+    function loadRoomSnapshot(roomId) {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEYS.roomPrefix + roomId);
+            return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+    }
+    function saveRoomSnapshot(roomId, data) {
+        try {
+            localStorage.setItem(STORAGE_KEYS.roomPrefix + roomId, JSON.stringify(data));
+        } catch (e) {
+            console.error('Failed to cache room', e);
+        }
+    }
+    function deleteRoomSnapshot(roomId) {
+        localStorage.removeItem(STORAGE_KEYS.roomPrefix + roomId);
+    }
+
+    // ------------------------------------------------------------------
+    // Utils
+    // ------------------------------------------------------------------
+    function uid(prefix) {
+        return (prefix || '') + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+    }
+
+    function generateRoomId() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let s = '';
+        for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
+        return s;
+    }
+
+    function formatMoney(amount, currency) {
+        const c = CURRENCIES[currency] || CURRENCIES.JPY;
+        const v = Math.abs(amount).toLocaleString(undefined, {
+            minimumFractionDigits: c.decimals,
+            maximumFractionDigits: c.decimals,
+        });
+        return (amount < 0 ? '-' : '') + c.symbol + v;
+    }
+
+    function todayISO() {
+        const d = new Date();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${d.getFullYear()}-${m}-${day}`;
+    }
+
+    function formatDateLong(iso) {
+        if (!iso) return '';
+        const d = new Date(iso + 'T00:00:00');
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    }
+
+    function formatDateShort(iso) {
+        if (!iso) return '';
+        const d = new Date(iso + 'T00:00:00');
+        return `${d.getMonth() + 1}/${d.getDate()}`;
+    }
+
+    function escapeHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s == null ? '' : String(s);
+        return div.innerHTML;
+    }
+
+    function escapeAttr(s) {
+        return escapeHtml(s).replace(/"/g, '&quot;');
+    }
+
+    function showToast(msg, ms = 2200) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(() => el.classList.remove('show'), ms);
+    }
+
+    function roundForCurrency(amount, currency) {
+        const c = CURRENCIES[currency] || CURRENCIES.JPY;
+        const factor = Math.pow(10, c.decimals);
+        return Math.round(amount * factor) / factor;
+    }
+
+    function distributeEqually(total, count, currency) {
+        if (count <= 0) return [];
+        const c = CURRENCIES[currency] || CURRENCIES.JPY;
+        const factor = Math.pow(10, c.decimals);
+        const cents = Math.round(total * factor);
+        const base = Math.floor(cents / count);
+        const remainder = cents - base * count;
+        return Array.from({ length: count }, (_, i) =>
+            (base + (i < remainder ? 1 : 0)) / factor
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Firebase sync layer
+    // ------------------------------------------------------------------
+    function detachCurrentRoom() {
+        if (state.currentRef) {
+            state.currentRef.off();
+            state.currentRef = null;
+        }
+    }
+
+    function attachRoom(roomId, onData) {
+        detachCurrentRoom();
+        state.syncStatus = 'syncing';
+        const ref = db.ref('rooms/' + roomId);
+        state.currentRef = ref;
+        ref.on('value', (snap) => {
+            const v = snap.val();
+            state.suppressSync = true;
+            try { onData(v); }
+            finally { state.suppressSync = false; }
+            state.syncStatus = 'online';
+            render();
+        }, (err) => {
+            console.error('Firebase read error', err);
+            state.syncStatus = 'offline';
+            render();
+        });
+    }
+
+    function pushCurrentRoom() {
+        if (state.suppressSync) return;
+        if (!state.currentRoomId || !state.currentData) return;
+        const data = { ...state.currentData, updatedAt: Date.now() };
+        saveRoomSnapshot(state.currentRoomId, data);
+        state.currentData = data;
+        // Update tricount metadata copy
+        const meta = state.tricounts.find(t => t.roomId === state.currentRoomId);
+        if (meta) {
+            meta.name = data.name;
+            meta.emoji = data.emoji;
+            meta.description = data.description;
+            meta.currency = data.currency;
+            meta.lastUpdated = data.updatedAt;
+            saveTricounts();
+        }
+        state.syncStatus = 'syncing';
+        db.ref('rooms/' + state.currentRoomId).set(data)
+            .then(() => { state.syncStatus = 'online'; render(); })
+            .catch((e) => {
+                console.error('Save error', e);
+                state.syncStatus = 'offline';
+                showToast('オフライン保存中（再接続したら同期）');
+                render();
+            });
+    }
+
+    // ------------------------------------------------------------------
+    // Tricount data ops
+    // ------------------------------------------------------------------
+    function createTricount({ name, emoji, description, currency, participants, myId }) {
+        const roomId = generateRoomId();
+        const data = {
+            name: name || 'New tricount',
+            emoji: emoji || '💰',
+            description: description || '',
+            currency: currency || 'JPY',
+            participants: participants,
+            expenses: [],
+            settlements: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
         };
+        const meta = {
+            roomId,
+            name: data.name,
+            emoji: data.emoji,
+            description: data.description,
+            currency: data.currency,
+            myId: myId,
+            lastUpdated: data.updatedAt,
+        };
+        state.tricounts.unshift(meta);
+        saveTricounts();
+        saveRoomSnapshot(roomId, data);
+        // Push to firebase
+        db.ref('rooms/' + roomId).set(data).catch(e => {
+            console.error('Initial push failed', e);
+            showToast('オフラインで作成（再接続時に同期）');
+        });
+        return meta;
+    }
 
-        // Firebase 初期化
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-
-        // データ管理
-        let payments = JSON.parse(localStorage.getItem('warikan_payments') || '[]');
-        let settlements = JSON.parse(localStorage.getItem('warikan_settlements') || '[]');
-        let roomId = null;
-        let isOnline = false;
-        let dataRef = null;
-        let isUpdatingFromFirebase = false;
-
-        // 初期化
-        function init() {
-            document.getElementById('date').valueAsDate = new Date();
-            setupPayerToggle('mainPayerToggle');
-            setupPayerToggle('editPayerToggle');
-            updateDisplay();
-
-            // URLからルームIDを確認
-            checkUrlForRoom();
-        }
-
-        // URLからルームIDを確認
-        function checkUrlForRoom() {
-            const params = new URLSearchParams(window.location.search);
-            const urlRoomId = params.get('room');
-            if (urlRoomId) {
-                roomId = urlRoomId;
-                connectToRoom(roomId);
+    function openTricount(roomId) {
+        const meta = state.tricounts.find(t => t.roomId === roomId);
+        if (!meta) return;
+        state.currentRoomId = roomId;
+        // Show cached snapshot immediately
+        const cached = loadRoomSnapshot(roomId);
+        state.currentData = cached || {
+            name: meta.name, emoji: meta.emoji, description: meta.description || '',
+            currency: meta.currency || 'JPY',
+            participants: [{ id: meta.myId, name: 'me' }],
+            expenses: [], settlements: [], updatedAt: 0
+        };
+        state.view = 'tricount';
+        render();
+        // Subscribe and update
+        attachRoom(roomId, (remote) => {
+            if (!remote) return; // empty room, keep local
+            // Merge: prefer remote (server is source of truth, our writes already on remote)
+            state.currentData = remote;
+            saveRoomSnapshot(roomId, remote);
+            // Update tricount meta in case name/emoji changed
+            const m = state.tricounts.find(t => t.roomId === roomId);
+            if (m) {
+                m.name = remote.name;
+                m.emoji = remote.emoji;
+                m.description = remote.description;
+                m.currency = remote.currency;
+                m.lastUpdated = remote.updatedAt;
+                saveTricounts();
             }
-        }
+        });
+    }
 
-        // 同期のトグル
-        function toggleSync() {
-            if (isOnline) {
-                disconnectFromRoom();
+    function exitTricount() {
+        detachCurrentRoom();
+        state.currentRoomId = null;
+        state.currentData = null;
+        state.view = 'home';
+        state.syncStatus = 'idle';
+        // Clear room param from URL
+        const url = new URL(window.location);
+        url.searchParams.delete('room');
+        window.history.replaceState({}, '', url);
+        render();
+    }
+
+    function addParticipant(name) {
+        const data = state.currentData;
+        if (!data) return null;
+        const p = { id: uid('p_'), name: name.trim() };
+        data.participants = [...(data.participants || []), p];
+        pushCurrentRoom();
+        return p;
+    }
+
+    function removeParticipant(participantId) {
+        const data = state.currentData;
+        if (!data) return;
+        // Don't remove if they have any expense/settlement involvement
+        const inUse = (data.expenses || []).some(e =>
+            e.paidBy === participantId || (e.splits || []).some(s => s.participantId === participantId)
+        ) || (data.settlements || []).some(s => s.from === participantId || s.to === participantId);
+        if (inUse) {
+            showToast('支払い履歴に使われているので削除できません');
+            return;
+        }
+        data.participants = (data.participants || []).filter(p => p.id !== participantId);
+        pushCurrentRoom();
+    }
+
+    function renameParticipant(participantId, newName) {
+        const data = state.currentData;
+        if (!data) return;
+        const p = (data.participants || []).find(p => p.id === participantId);
+        if (p) { p.name = newName.trim(); pushCurrentRoom(); }
+    }
+
+    function addExpense(expense) {
+        const data = state.currentData;
+        if (!data) return;
+        data.expenses = [...(data.expenses || []), expense];
+        pushCurrentRoom();
+    }
+
+    function updateExpense(updated) {
+        const data = state.currentData;
+        if (!data) return;
+        data.expenses = (data.expenses || []).map(e => e.id === updated.id ? updated : e);
+        pushCurrentRoom();
+    }
+
+    function deleteExpense(id) {
+        const data = state.currentData;
+        if (!data) return;
+        data.expenses = (data.expenses || []).filter(e => e.id !== id);
+        pushCurrentRoom();
+    }
+
+    function addSettlement(settlement) {
+        const data = state.currentData;
+        if (!data) return;
+        data.settlements = [...(data.settlements || []), settlement];
+        pushCurrentRoom();
+    }
+
+    function deleteSettlement(id) {
+        const data = state.currentData;
+        if (!data) return;
+        data.settlements = (data.settlements || []).filter(s => s.id !== id);
+        pushCurrentRoom();
+    }
+
+    function deleteTricount(roomId) {
+        if (state.currentRoomId === roomId) detachCurrentRoom();
+        state.tricounts = state.tricounts.filter(t => t.roomId !== roomId);
+        saveTricounts();
+        deleteRoomSnapshot(roomId);
+        // We do NOT delete the Firebase room - other devices may still use it.
+        if (state.currentRoomId === roomId) {
+            state.currentRoomId = null;
+            state.currentData = null;
+            state.view = 'home';
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Balance calculation
+    // ------------------------------------------------------------------
+    function computeBalances(data) {
+        const balances = {};
+        (data.participants || []).forEach(p => { balances[p.id] = 0; });
+
+        (data.expenses || []).forEach(e => {
+            const sign = e.type === 'income' ? -1 : 1;
+            // Money paid out by paidBy
+            if (e.type === 'transfer') {
+                // transfer: paidBy -> recipient (single split). paidBy gains, recipient loses.
+                balances[e.paidBy] = (balances[e.paidBy] || 0) + e.amount;
+                (e.splits || []).forEach(s => {
+                    balances[s.participantId] = (balances[s.participantId] || 0) - s.amount;
+                });
             } else {
-                if (!roomId) {
-                    roomId = generateRoomId();
-                }
-                connectToRoom(roomId);
+                balances[e.paidBy] = (balances[e.paidBy] || 0) + sign * e.amount;
+                (e.splits || []).forEach(s => {
+                    balances[s.participantId] = (balances[s.participantId] || 0) - sign * s.amount;
+                });
             }
+        });
+
+        (data.settlements || []).forEach(s => {
+            balances[s.from] = (balances[s.from] || 0) + s.amount;
+            balances[s.to] = (balances[s.to] || 0) - s.amount;
+        });
+
+        // Round
+        Object.keys(balances).forEach(k => {
+            balances[k] = roundForCurrency(balances[k], data.currency);
+        });
+        return balances;
+    }
+
+    // Greedy settlement plan (who pays whom how much)
+    function settlementPlan(data) {
+        const balances = computeBalances(data);
+        const debtors = [];
+        const creditors = [];
+        Object.keys(balances).forEach(id => {
+            const v = balances[id];
+            if (v < -0.01) debtors.push({ id, v: -v });
+            else if (v > 0.01) creditors.push({ id, v });
+        });
+        debtors.sort((a, b) => b.v - a.v);
+        creditors.sort((a, b) => b.v - a.v);
+        const transfers = [];
+        let i = 0, j = 0;
+        while (i < debtors.length && j < creditors.length) {
+            const d = debtors[i], c = creditors[j];
+            const amt = roundForCurrency(Math.min(d.v, c.v), data.currency);
+            transfers.push({ from: d.id, to: c.id, amount: amt });
+            d.v -= amt;
+            c.v -= amt;
+            if (d.v < 0.01) i++;
+            if (c.v < 0.01) j++;
+        }
+        return { balances, transfers };
+    }
+
+    function nameOf(data, participantId) {
+        const p = (data.participants || []).find(p => p.id === participantId);
+        return p ? p.name : '?';
+    }
+
+    // ------------------------------------------------------------------
+    // Migration from legacy app
+    // ------------------------------------------------------------------
+    function migrateLegacy() {
+        if (localStorage.getItem(STORAGE_KEYS.legacyMigrated)) return;
+        const oldP = localStorage.getItem('warikan_payments');
+        const oldS = localStorage.getItem('warikan_settlements');
+        if (!oldP && !oldS) {
+            localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1');
+            return;
+        }
+        try {
+            const payments = JSON.parse(oldP || '[]');
+            const settlements = JSON.parse(oldS || '[]');
+            if (!payments.length && !settlements.length) {
+                localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1');
+                return;
+            }
+            const tatsuId = uid('p_');
+            const rebeccaId = uid('p_');
+            const data = {
+                name: 'たつや ♡ レベッカ',
+                emoji: '💕',
+                description: '旧アプリから引き継ぎ',
+                currency: 'JPY',
+                participants: [
+                    { id: tatsuId, name: 'たつや' },
+                    { id: rebeccaId, name: 'レベッカ' },
+                ],
+                expenses: payments.map(p => ({
+                    id: uid('e_'),
+                    type: 'expense',
+                    title: p.description || '支払い',
+                    amount: Number(p.total) || 0,
+                    paidBy: p.payer === 'you' ? tatsuId : rebeccaId,
+                    date: p.date || todayISO(),
+                    splits: [
+                        { participantId: tatsuId, amount: Number(p.youAmount) || 0 },
+                        { participantId: rebeccaId, amount: Number(p.partnerAmount) || 0 },
+                    ],
+                    createdAt: Number(p.id) || Date.now(),
+                })),
+                settlements: settlements.map(s => ({
+                    id: uid('s_'),
+                    date: s.date || todayISO(),
+                    amount: Number(s.amount) || 0,
+                    from: s.payer === 'you' ? tatsuId : rebeccaId,
+                    to: s.receiver === 'you' ? tatsuId : rebeccaId,
+                })),
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            };
+            const roomId = generateRoomId();
+            const meta = {
+                roomId,
+                name: data.name,
+                emoji: data.emoji,
+                description: data.description,
+                currency: data.currency,
+                myId: tatsuId,
+                lastUpdated: data.updatedAt,
+            };
+            state.tricounts.push(meta);
+            saveTricounts();
+            saveRoomSnapshot(roomId, data);
+            db.ref('rooms/' + roomId).set(data).catch(() => {});
+            localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1');
+            showToast('旧データを引き継いだよ');
+        } catch (e) {
+            console.error('Legacy migration failed', e);
+            localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1');
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Join via shared link
+    // ------------------------------------------------------------------
+    async function tryJoinFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const roomId = params.get('room');
+        if (!roomId) return;
+        // If already in our list, just open it
+        const existing = state.tricounts.find(t => t.roomId === roomId);
+        if (existing) {
+            openTricount(roomId);
+            return;
+        }
+        // Fetch room from Firebase
+        try {
+            state.syncStatus = 'syncing';
+            render();
+            const snap = await db.ref('rooms/' + roomId).get();
+            if (!snap.exists()) {
+                showToast('共有リンクのデータが見つからないよ');
+                state.syncStatus = 'idle';
+                render();
+                return;
+            }
+            const remote = snap.val();
+            // Cache it
+            saveRoomSnapshot(roomId, remote);
+            state.pendingJoinRoom = { roomId, data: remote };
+            state.sheet = 'joinPick';
+            render();
+        } catch (e) {
+            console.error('Join fetch failed', e);
+            showToast('リンクから読み込めなかったよ');
+            state.syncStatus = 'offline';
+            render();
+        }
+    }
+
+    function completeJoin(participantId) {
+        const join = state.pendingJoinRoom;
+        if (!join) return;
+        const meta = {
+            roomId: join.roomId,
+            name: join.data.name,
+            emoji: join.data.emoji,
+            description: join.data.description,
+            currency: join.data.currency,
+            myId: participantId,
+            lastUpdated: join.data.updatedAt || Date.now(),
+        };
+        state.tricounts.unshift(meta);
+        saveTricounts();
+        state.pendingJoinRoom = null;
+        state.sheet = null;
+        openTricount(join.roomId);
+    }
+
+    function joinAsNewParticipant(name) {
+        const join = state.pendingJoinRoom;
+        if (!join) return;
+        const newP = { id: uid('p_'), name: name.trim() };
+        join.data.participants = [...(join.data.participants || []), newP];
+        // Push to firebase first so partner sees it
+        db.ref('rooms/' + join.roomId).set({ ...join.data, updatedAt: Date.now() }).catch(() => {});
+        completeJoin(newP.id);
+    }
+
+    // ------------------------------------------------------------------
+    // Rendering
+    // ------------------------------------------------------------------
+    const app = document.getElementById('app');
+
+    function render() {
+        let html = '';
+        if (state.view === 'home') {
+            html = renderHome();
+        } else if (state.view === 'tricount' && state.currentData) {
+            html = renderTricount();
+        } else {
+            html = renderHome();
+        }
+        if (state.sheet) {
+            html += renderSheet();
+        }
+        app.innerHTML = html;
+        bindEvents();
+    }
+
+    // ---- Home ----
+    function renderHome() {
+        const items = state.tricounts.length > 0
+            ? state.tricounts.map(t => `
+                <div class="tricount-card pressable" data-action="open-tricount" data-room="${escapeAttr(t.roomId)}">
+                    <div class="tricount-emoji">${escapeHtml(t.emoji || '💰')}</div>
+                    <div class="tricount-info">
+                        <div class="tricount-name">${escapeHtml(t.name)}</div>
+                        <div class="tricount-desc">${escapeHtml(t.description || ' ')}</div>
+                    </div>
+                    <div class="tricount-arrow">›</div>
+                </div>
+            `).join('')
+            : `<div class="empty-state">
+                <div class="emoji">💰</div>
+                <div class="title">トリカウントはまだないよ</div>
+                <div>下の＋から最初のグループを作ろう</div>
+              </div>`;
+
+        return `
+            <div class="screen">
+                <div class="brand">
+                    <div class="brand-logo">warikan</div>
+                    <div class="brand-sub">by you ♡ her</div>
+                </div>
+                <div class="scroll">
+                    ${items}
+                </div>
+                <div class="fab-wrap">
+                    <button class="fab" data-action="new-tricount" aria-label="Add">+</button>
+                    <div class="fab-label">Add a tricount</div>
+                </div>
+                <nav class="bottom-nav">
+                    <div class="bottom-nav-item active">
+                        <div class="bottom-nav-icon">⇆</div>
+                        <div class="bottom-nav-label">tricounts</div>
+                    </div>
+                    <div class="bottom-nav-item" data-action="show-join">
+                        <div class="bottom-nav-icon">🔗</div>
+                        <div class="bottom-nav-label">Join</div>
+                    </div>
+                    <div class="bottom-nav-item" data-action="show-help">
+                        <div class="bottom-nav-icon">？</div>
+                        <div class="bottom-nav-label">Help</div>
+                    </div>
+                </nav>
+            </div>
+        `;
+    }
+
+    // ---- Tricount detail ----
+    function renderTricount() {
+        const data = state.currentData;
+        const meta = state.tricounts.find(t => t.roomId === state.currentRoomId);
+        const myId = meta ? meta.myId : null;
+        const { balances, transfers } = settlementPlan(data);
+
+        const myBalance = myId ? (balances[myId] || 0) : 0;
+        let headline, detail;
+        if (Math.abs(myBalance) < 0.01) {
+            headline = '精算済みです';
+            detail = (data.expenses || []).length === 0 ? 'まだ支払いはないよ' : 'いまの差額はゼロ';
+        } else if (myBalance > 0) {
+            headline = `+${formatMoney(myBalance, data.currency)}`;
+            detail = 'みんなからもらえる金額';
+        } else {
+            headline = `-${formatMoney(-myBalance, data.currency)}`;
+            detail = 'あなたが払う金額';
         }
 
-        // ルームID生成
-        function generateRoomId() {
-            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        // Suggested transfers (settle up plan)
+        const transferRows = transfers.map(t => `
+            <div class="balance-row">
+                <span class="name">${escapeHtml(nameOf(data, t.from))} → ${escapeHtml(nameOf(data, t.to))}</span>
+                <span class="amt">${formatMoney(t.amount, data.currency)}</span>
+            </div>
+        `).join('');
+
+        // Per-participant balance breakdown
+        const balanceRows = (data.participants || []).map(p => {
+            const v = balances[p.id] || 0;
+            const sign = v > 0.01 ? 'pos' : (v < -0.01 ? 'neg' : '');
+            const prefix = v > 0.01 ? '+' : '';
+            return `
+                <div class="balance-row">
+                    <span class="name">${escapeHtml(p.name)}${p.id === myId ? ' (me)' : ''}</span>
+                    <span class="amt ${sign}">${Math.abs(v) < 0.01 ? formatMoney(0, data.currency) : prefix + formatMoney(v, data.currency)}</span>
+                </div>
+            `;
+        }).join('');
+
+        // Group expenses by date
+        const allItems = [
+            ...(data.expenses || []).map(e => ({ kind: 'expense', date: e.date, e })),
+            ...(data.settlements || []).map(s => ({ kind: 'settle', date: s.date, s })),
+        ].sort((a, b) => {
+            if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+            const ta = a.kind === 'expense' ? (a.e.createdAt || 0) : 0;
+            const tb = b.kind === 'expense' ? (b.e.createdAt || 0) : 0;
+            return tb - ta;
+        });
+
+        const groupsByDate = {};
+        allItems.forEach(it => {
+            (groupsByDate[it.date] = groupsByDate[it.date] || []).push(it);
+        });
+        const dateKeys = Object.keys(groupsByDate).sort((a, b) => a < b ? 1 : -1);
+
+        const expensesHtml = dateKeys.length === 0
+            ? `<div class="empty-state">
+                <div class="emoji">🧾</div>
+                <div class="title">支払いがまだないよ</div>
+                <div>下の＋から最初の支払いを記録しよう</div>
+              </div>`
+            : dateKeys.map(dk => `
+                <div class="expense-group">
+                    <div class="expense-group-date">${escapeHtml(formatDateLong(dk))}</div>
+                    ${groupsByDate[dk].map(it => it.kind === 'expense' ? renderExpenseRow(data, it.e) : renderSettleRow(data, it.s)).join('')}
+                </div>
+            `).join('');
+
+        const syncCls = state.syncStatus === 'online' ? 'online'
+            : state.syncStatus === 'syncing' ? 'syncing'
+            : state.syncStatus === 'offline' || state.syncStatus === 'error' ? 'offline' : '';
+        const syncText = state.syncStatus === 'online' ? '同期中'
+            : state.syncStatus === 'syncing' ? '同期中…'
+            : state.syncStatus === 'offline' ? 'オフライン'
+            : state.syncStatus === 'error' ? 'エラー' : '保存済み';
+
+        return `
+            <div class="screen">
+                <div class="topbar">
+                    <button class="topbar-back" data-action="back-home" aria-label="Back">‹</button>
+                    <div class="topbar-title">${escapeHtml(data.emoji || '')} ${escapeHtml(data.name)}</div>
+                    <button class="topbar-action icon" data-action="open-settings" aria-label="Settings">⚙</button>
+                    <button class="topbar-action icon" data-action="open-share" aria-label="Share">↗</button>
+                </div>
+                <div class="scroll">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span class="sync-pill ${syncCls}"><span class="dot"></span>${escapeHtml(syncText)}</span>
+                        <span style="font-size:12px; color: var(--text-secondary);">${(data.participants || []).length}人 · ${(data.expenses || []).length}件</span>
+                    </div>
+                    <div class="balance-card">
+                        <div class="balance-title">あなたの残高</div>
+                        <div class="balance-headline" style="color:${myBalance > 0.01 ? 'var(--success)' : myBalance < -0.01 ? 'var(--danger)' : 'var(--text)'}">${escapeHtml(headline)}</div>
+                        <div class="balance-detail">${escapeHtml(detail)}</div>
+                        ${balanceRows ? `<div class="balance-list">${balanceRows}</div>` : ''}
+                        ${transferRows ? `
+                            <div style="margin-top:14px;">
+                                <div class="balance-title" style="margin-bottom:6px;">いちばんシンプルな精算</div>
+                                <div class="balance-list">${transferRows}</div>
+                                <button class="btn-secondary" style="margin-top:10px;" data-action="quick-settle">この内容で精算を記録</button>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="section-title">履歴</div>
+                    ${expensesHtml}
+                </div>
+                <div class="fab-wrap">
+                    <button class="fab" data-action="add-expense" aria-label="Add expense">+</button>
+                    <div class="fab-label">Add expense</div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderExpenseRow(data, e) {
+        const isIncome = e.type === 'income';
+        const isTransfer = e.type === 'transfer';
+        const icon = isIncome ? '⇣' : isTransfer ? '⇄' : '🧾';
+        const cls = isIncome ? 'income' : isTransfer ? 'transfer' : '';
+        let meta;
+        if (isTransfer) {
+            const recipient = (e.splits || [])[0];
+            meta = `${nameOf(data, e.paidBy)} → ${recipient ? nameOf(data, recipient.participantId) : '?'}`;
+        } else {
+            const involved = (e.splits || []).length;
+            meta = `${nameOf(data, e.paidBy)}が払い · ${involved}人で割り勘`;
         }
+        return `
+            <div class="expense-row pressable" data-action="open-expense" data-id="${escapeAttr(e.id)}">
+                <div class="expense-icon ${cls}">${icon}</div>
+                <div class="expense-info">
+                    <div class="expense-title">${escapeHtml(e.title || '無題')}</div>
+                    <div class="expense-meta">${escapeHtml(meta)}</div>
+                </div>
+                <div class="expense-amount ${cls}">${isIncome ? '+' : ''}${formatMoney(e.amount, data.currency)}</div>
+            </div>
+        `;
+    }
 
-        // ルームに接続
-        function connectToRoom(id) {
-            roomId = id;
-            isOnline = true;
+    function renderSettleRow(data, s) {
+        return `
+            <div class="expense-row pressable" data-action="open-settle" data-id="${escapeAttr(s.id)}">
+                <div class="expense-icon transfer">💸</div>
+                <div class="expense-info">
+                    <div class="expense-title">精算</div>
+                    <div class="expense-meta">${escapeHtml(nameOf(data, s.from))} → ${escapeHtml(nameOf(data, s.to))}</div>
+                </div>
+                <div class="expense-amount transfer">${formatMoney(s.amount, data.currency)}</div>
+            </div>
+        `;
+    }
 
-            dataRef = database.ref('rooms/' + roomId);
+    // ---- Sheets ----
+    function renderSheet() {
+        let inner = '';
+        switch (state.sheet) {
+            case 'newTricount': inner = sheetNewTricount(); break;
+            case 'addExpense': inner = sheetEditExpense(null); break;
+            case 'editExpense': inner = sheetEditExpense(state.sheetData.id); break;
+            case 'editSettle': inner = sheetEditSettle(state.sheetData.id); break;
+            case 'share': inner = sheetShare(); break;
+            case 'settings': inner = sheetSettings(); break;
+            case 'joinPick': inner = sheetJoinPick(); break;
+            case 'help': inner = sheetHelp(); break;
+            case 'join': inner = sheetJoinManual(); break;
+            case 'addSettle': inner = sheetAddSettle(); break;
+        }
+        return `
+            <div class="sheet-backdrop show" data-action="close-sheet">
+                <div class="sheet" data-stop>
+                    <div class="sheet-handle"></div>
+                    ${inner}
+                </div>
+            </div>
+        `;
+    }
 
-            // 現在のローカルデータを一旦保持
-            const localPayments = [...payments];
-            const localSettlements = [...settlements];
+    function sheetNewTricount() {
+        const draft = state.sheetData = state.sheetData || {
+            name: '',
+            emoji: '💰',
+            description: '',
+            currency: 'JPY',
+            participants: [{ id: uid('p_'), name: 'me' }],
+            myId: null,
+        };
+        if (!draft.myId && draft.participants[0]) draft.myId = draft.participants[0].id;
+        const emojiBtns = EMOJI_PRESETS.map(em => `
+            <button data-action="pick-emoji" data-emoji="${escapeAttr(em)}" class="${em === draft.emoji ? 'selected' : ''}">${em}</button>
+        `).join('');
+        const currencyOpts = Object.keys(CURRENCIES).map(k =>
+            `<option value="${k}" ${k === draft.currency ? 'selected' : ''}>${escapeHtml(CURRENCIES[k].label)}</option>`
+        ).join('');
+        const participants = draft.participants.map(p => `
+            <div class="chip">
+                <input data-rename="${escapeAttr(p.id)}" value="${escapeAttr(p.name)}" style="background:none;border:none;padding:0;width:auto;min-width:60px;font-size:14px;color:inherit;">
+                ${draft.participants.length > 1 ? `<button data-action="remove-draft-p" data-id="${escapeAttr(p.id)}" aria-label="Remove">×</button>` : ''}
+            </div>
+        `).join('');
+        const myOpts = draft.participants.map(p =>
+            `<option value="${escapeAttr(p.id)}" ${p.id === draft.myId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+        ).join('');
 
-            // Firebaseからデータを監視
-            dataRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    isUpdatingFromFirebase = true;
-                    payments = data.payments || [];
-                    settlements = data.settlements || [];
-                    saveLocalData();
-                    updateDisplay();
-                    isUpdatingFromFirebase = false;
-                    updateSyncStatus('🟢 同期中');
-                } else {
-                    // ルームが空の場合、ローカルデータをアップロード
-                    if (localPayments.length > 0 || localSettlements.length > 0) {
-                        saveToFirebase();
+        return `
+            <div class="sheet-title">新しいトリカウント</div>
+
+            <div class="form-section">
+                <label class="form-label">名前</label>
+                <input data-field="name" value="${escapeAttr(draft.name)}" placeholder="例: 沖縄旅行 / 同棲生活" maxlength="40">
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">アイコン</label>
+                <div class="emoji-grid">${emojiBtns}</div>
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">説明（任意）</label>
+                <input data-field="description" value="${escapeAttr(draft.description)}" placeholder="メモ" maxlength="80">
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">通貨</label>
+                <div class="select-wrap">
+                    <select data-field="currency">${currencyOpts}</select>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">参加者</label>
+                <div class="chip-list" id="draftChips">${participants}</div>
+                <div class="chip-add-input">
+                    <input data-field="newP" placeholder="名前を追加" maxlength="20">
+                    <button data-action="add-draft-p">追加</button>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">あなたは？</label>
+                <div class="select-wrap">
+                    <select data-field="myId">${myOpts}</select>
+                </div>
+                <div class="helper">あなたのデバイスでこのトリカウントを開くと、ここで選んだ人として扱われるよ。</div>
+            </div>
+
+            <button class="btn-primary" data-action="confirm-new-tricount">作成する</button>
+        `;
+    }
+
+    function sheetEditExpense(existingId) {
+        const data = state.currentData;
+        const meta = state.tricounts.find(t => t.roomId === state.currentRoomId);
+        const myId = meta ? meta.myId : (data.participants[0] && data.participants[0].id);
+
+        let draft = state.sheetData;
+        if (existingId && (!draft || draft.id !== existingId)) {
+            const existing = (data.expenses || []).find(e => e.id === existingId);
+            if (existing) {
+                // Deep clone with split mode detection
+                const equalSplits = distributeEqually(existing.amount, existing.splits.length, data.currency);
+                const isEqual = existing.splits.every((s, i) => Math.abs(s.amount - equalSplits[i]) < 0.01);
+                draft = {
+                    id: existing.id,
+                    type: existing.type,
+                    title: existing.title,
+                    amount: existing.amount,
+                    paidBy: existing.paidBy,
+                    date: existing.date,
+                    splits: existing.splits.map(s => ({ ...s, included: true })),
+                    splitMode: isEqual ? 'equal' : 'custom',
+                    createdAt: existing.createdAt,
+                };
+                // Add unincluded participants
+                data.participants.forEach(p => {
+                    if (!draft.splits.find(s => s.participantId === p.id)) {
+                        draft.splits.push({ participantId: p.id, amount: 0, included: false });
                     }
-                    updateSyncStatus('🟢 同期中');
-                }
-            }, (error) => {
-                console.error('Firebase error:', error);
-                updateSyncStatus('🔴 接続エラー');
-            });
-
-            // UI更新
-            const syncBtn = document.getElementById('syncBtn');
-            syncBtn.textContent = '🔴 同期を停止';
-            syncBtn.classList.add('connected');
-
-            document.getElementById('roomDisplay').style.display = 'block';
-            document.getElementById('roomId').textContent = roomId;
-
-            // URLを更新
-            const url = new URL(window.location);
-            url.searchParams.set('room', roomId);
-            window.history.replaceState({}, '', url);
-        }
-
-        // ルームから切断
-        function disconnectFromRoom() {
-            if (dataRef) {
-                dataRef.off();
-            }
-            isOnline = false;
-
-            const syncBtn = document.getElementById('syncBtn');
-            syncBtn.textContent = '🔗 リアルタイム同期を開始';
-            syncBtn.classList.remove('connected');
-
-            document.getElementById('roomDisplay').style.display = 'none';
-            updateSyncStatus('オフライン');
-
-            // URLをクリア
-            const url = new URL(window.location);
-            url.searchParams.delete('room');
-            window.history.replaceState({}, '', url);
-        }
-
-        // Firebaseにデータを保存
-        function saveToFirebase() {
-            if (!isOnline || !dataRef || isUpdatingFromFirebase) return;
-
-            dataRef.set({
-                payments: payments,
-                settlements: settlements,
-                updatedAt: Date.now()
-            }).catch(error => {
-                console.error('Save error:', error);
-                updateSyncStatus('🔴 保存エラー');
-            });
-        }
-
-        // 同期ステータス更新
-        function updateSyncStatus(status) {
-            const statusEl = document.getElementById('syncStatus');
-            statusEl.textContent = status;
-            statusEl.className = 'sync-status' + (status.includes('同期中') ? ' success' : status.includes('エラー') ? '' : ' syncing');
-        }
-
-        // ルームURLをコピー
-        function copyRoomUrl() {
-            const url = window.location.href;
-            navigator.clipboard.writeText(url).then(() => {
-                updateSyncStatus('✅ URLコピーしたよ！レベッカに送ってね💕');
-            }).catch(() => {
-                prompt('このURLをレベッカに送ってね💕:', url);
-            });
-        }
-
-        // 支払者トグル設定
-        function setupPayerToggle(toggleId) {
-            document.querySelectorAll(`#${toggleId} .payer-btn`).forEach(btn => {
-                btn.addEventListener('click', function() {
-                    document.querySelectorAll(`#${toggleId} .payer-btn`).forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
                 });
-            });
-        }
-
-        // 割合プリセット
-        function setPreset(form, youPercent, partnerPercent) {
-            const totalId = form === 'main' ? 'total' : 'editTotal';
-            const youId = form === 'main' ? 'youAmount' : 'editYouAmount';
-            const partnerId = form === 'main' ? 'partnerAmount' : 'editPartnerAmount';
-
-            const total = parseInt(document.getElementById(totalId).value) || 0;
-            document.getElementById(youId).value = Math.round(total * youPercent / 100);
-            document.getElementById(partnerId).value = Math.round(total * partnerPercent / 100);
-        }
-
-        // 直接払いショートカット
-        function setDirectPay(direction) {
-            const amountStr = prompt('金額を入力してください（円）:');
-            if (!amountStr) return;
-            const amount = parseInt(amountStr);
-            if (!amount || amount <= 0) {
-                alert('正しい金額を入力してください。');
-                return;
+                state.sheetData = draft;
             }
-
-            const desc = document.getElementById('description');
-            const total = document.getElementById('total');
-            const youAmt = document.getElementById('youAmount');
-            const partnerAmt = document.getElementById('partnerAmount');
-
-            total.value = amount;
-
-            if (direction === 'tatsuya') {
-                // たつや → レベッカ: たつやが払う、レベッカが全額負担
-                // → レベッカがたつやに返す必要あり
-                desc.value = desc.value || '直接払い（たつや→レベッカ）';
-                youAmt.value = 0;
-                partnerAmt.value = amount;
-                document.querySelectorAll('#mainPayerToggle .payer-btn').forEach(btn => {
-                    btn.classList.toggle('active', btn.dataset.payer === 'you');
-                });
-            } else {
-                // レベッカ → たつや: レベッカが払う、たつやが全額負担
-                // → たつやがレベッカに返す必要あり
-                desc.value = desc.value || '直接払い（レベッカ→たつや）';
-                youAmt.value = amount;
-                partnerAmt.value = 0;
-                document.querySelectorAll('#mainPayerToggle .payer-btn').forEach(btn => {
-                    btn.classList.toggle('active', btn.dataset.payer === 'partner');
-                });
-            }
-
-            document.getElementById('date').valueAsDate = new Date();
-            document.getElementById('paymentForm').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // 総額変更時に負担額を自動計算（半々デフォルト）
-        document.getElementById('total').addEventListener('input', function() {
-            const total = parseInt(this.value) || 0;
-            document.getElementById('youAmount').value = Math.round(total / 2);
-            document.getElementById('partnerAmount').value = Math.round(total / 2);
-        });
-
-        document.getElementById('editTotal').addEventListener('input', function() {
-            const total = parseInt(this.value) || 0;
-            document.getElementById('editYouAmount').value = Math.round(total / 2);
-            document.getElementById('editPartnerAmount').value = Math.round(total / 2);
-        });
-
-        // 支払い登録
-        document.getElementById('paymentForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const payment = {
-                id: Date.now(),
-                date: document.getElementById('date').value,
-                description: document.getElementById('description').value,
-                total: parseInt(document.getElementById('total').value),
-                payer: document.querySelector('#mainPayerToggle .payer-btn.active').dataset.payer,
-                youAmount: parseInt(document.getElementById('youAmount').value),
-                partnerAmount: parseInt(document.getElementById('partnerAmount').value)
+        } else if (!draft) {
+            draft = {
+                id: null,
+                type: 'expense',
+                title: '',
+                amount: 0,
+                paidBy: myId,
+                date: todayISO(),
+                splits: data.participants.map(p => ({ participantId: p.id, amount: 0, included: true })),
+                splitMode: 'equal',
+                createdAt: Date.now(),
             };
+            state.sheetData = draft;
+        }
 
-            payments.push(payment);
-            saveData();
-            updateDisplay();
-            this.reset();
-            document.getElementById('date').valueAsDate = new Date();
+        // Recalc equal split amounts
+        if (draft.splitMode === 'equal') {
+            const included = draft.splits.filter(s => s.included);
+            const eq = distributeEqually(draft.amount, included.length, data.currency);
+            included.forEach((s, i) => { s.amount = eq[i] || 0; });
+            draft.splits.filter(s => !s.included).forEach(s => { s.amount = 0; });
+        }
 
-            // 支払者ボタンをリセット
-            document.querySelectorAll('#mainPayerToggle .payer-btn').forEach(b => b.classList.remove('active'));
-            document.querySelector('#mainPayerToggle .payer-btn.you').classList.add('active');
+        const tabs = ['expense','income','transfer'].map(t => `
+            <div class="tab ${draft.type === t ? 'active' : ''}" data-action="set-type" data-type="${t}">
+                ${t === 'expense' ? '支出' : t === 'income' ? '収入' : '送金'}
+            </div>
+        `).join('');
+
+        const currencyOpts = Object.keys(CURRENCIES).map(k =>
+            `<option value="${k}" ${k === data.currency ? 'selected' : ''}>${escapeHtml(CURRENCIES[k].symbol)}</option>`
+        ).join('');
+
+        const paidByOpts = data.participants.map(p =>
+            `<option value="${escapeAttr(p.id)}" ${p.id === draft.paidBy ? 'selected' : ''}>${escapeHtml(p.name)}${p.id === myId ? ' (me)' : ''}</option>`
+        ).join('');
+
+        let splitSection = '';
+        if (draft.type === 'transfer') {
+            // Transfer: pick recipient (single)
+            const recipient = (draft.splits.find(s => s.included) || { participantId: null }).participantId;
+            const recipientOpts = data.participants
+                .filter(p => p.id !== draft.paidBy)
+                .map(p => `<option value="${escapeAttr(p.id)}" ${p.id === recipient ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
+            splitSection = `
+                <div class="form-section">
+                    <label class="form-label">受け取る人</label>
+                    <div class="select-wrap">
+                        <select data-field="transferTo">${recipientOpts || '<option>(他の人を追加してね)</option>'}</select>
+                    </div>
+                </div>
+            `;
+        } else {
+            const splitRows = draft.splits.map(s => {
+                const p = data.participants.find(pp => pp.id === s.participantId);
+                if (!p) return '';
+                return `
+                    <div class="split-row">
+                        <button class="checkbox ${s.included ? 'checked' : ''}" data-action="toggle-split" data-id="${escapeAttr(s.participantId)}">${s.included ? '✓' : ''}</button>
+                        <div class="split-name">${escapeHtml(p.name)}</div>
+                        ${draft.splitMode === 'custom'
+                            ? `<input class="split-amount-input" type="number" inputmode="decimal" step="0.01" min="0" data-split-amount="${escapeAttr(s.participantId)}" value="${s.included ? s.amount : 0}" ${s.included ? '' : 'disabled'}>`
+                            : `<div class="split-amount">${formatMoney(s.amount, data.currency)}</div>`
+                        }
+                    </div>
+                `;
+            }).join('');
+            const sumIncluded = draft.splits.filter(s => s.included).reduce((acc, s) => acc + Number(s.amount || 0), 0);
+            const diff = roundForCurrency(draft.amount - sumIncluded, data.currency);
+            const warn = draft.splitMode === 'custom' && Math.abs(diff) > 0.01
+                ? `<div class="error-msg">合計が ${formatMoney(diff, data.currency)} ${diff > 0 ? '足りない' : '多い'} よ</div>`
+                : '';
+            splitSection = `
+                <div class="form-section">
+                    <div class="split-header">
+                        <div class="split-toggle">
+                            <span class="form-label" style="margin:0;">割り勘</span>
+                        </div>
+                        <button class="split-mode" data-action="toggle-split-mode">
+                            ${draft.splitMode === 'equal' ? '均等' : '個別指定'} ⌃⌄
+                        </button>
+                    </div>
+                    <div class="split-list">${splitRows}</div>
+                    ${warn}
+                </div>
+            `;
+        }
+
+        return `
+            <div class="sheet-title">${existingId ? '支払いを編集' : '支払いを追加'}</div>
+            <div class="tabs">${tabs}</div>
+
+            <div class="form-section">
+                <label class="form-label">タイトル</label>
+                <input data-field="title" value="${escapeAttr(draft.title)}" placeholder="例: 食事 / 宿泊" maxlength="60">
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">金額</label>
+                <div class="currency-input">
+                    <div class="select-wrap currency-select">
+                        <select disabled>${currencyOpts}</select>
+                    </div>
+                    <input class="amount-input" data-field="amount" type="number" inputmode="decimal" step="${CURRENCIES[data.currency].decimals === 0 ? '1' : '0.01'}" min="0" value="${draft.amount || ''}" placeholder="0">
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-bottom:18px;">
+                <div>
+                    <label class="form-label">${draft.type === 'income' ? '受け取った人' : '払った人'}</label>
+                    <div class="select-wrap">
+                        <select data-field="paidBy">${paidByOpts}</select>
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label">日付</label>
+                    <input data-field="date" type="date" value="${escapeAttr(draft.date)}">
+                </div>
+            </div>
+
+            ${splitSection}
+
+            <button class="btn-primary" data-action="confirm-expense">${existingId ? '保存' : '追加'}</button>
+            ${existingId ? `<button class="btn-danger" style="margin-top:10px;" data-action="delete-expense" data-id="${escapeAttr(existingId)}">削除</button>` : ''}
+        `;
+    }
+
+    function sheetEditSettle(id) {
+        const data = state.currentData;
+        const settle = (data.settlements || []).find(s => s.id === id);
+        if (!settle) return '<div class="sheet-title">見つかりません</div>';
+        return `
+            <div class="sheet-title">精算の詳細</div>
+            <div class="form-section">
+                <div class="balance-row">
+                    <span class="name">${escapeHtml(nameOf(data, settle.from))} → ${escapeHtml(nameOf(data, settle.to))}</span>
+                    <span class="amt">${formatMoney(settle.amount, data.currency)}</span>
+                </div>
+                <div class="helper" style="margin-top:8px;">${escapeHtml(formatDateLong(settle.date))}</div>
+            </div>
+            <button class="btn-danger" data-action="delete-settle" data-id="${escapeAttr(settle.id)}">この精算を取り消す</button>
+        `;
+    }
+
+    function sheetAddSettle() {
+        const data = state.currentData;
+        const draft = state.sheetData = state.sheetData || (() => {
+            const plan = settlementPlan(data);
+            const t = plan.transfers[0];
+            const meta = state.tricounts.find(x => x.roomId === state.currentRoomId);
+            const myId = meta ? meta.myId : null;
+            return {
+                from: t ? t.from : (myId || data.participants[0].id),
+                to: t ? t.to : (data.participants.find(p => p.id !== (myId || data.participants[0].id)) || data.participants[0]).id,
+                amount: t ? t.amount : 0,
+                date: todayISO(),
+            };
+        })();
+
+        const fromOpts = data.participants.map(p =>
+            `<option value="${escapeAttr(p.id)}" ${p.id === draft.from ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+        ).join('');
+        const toOpts = data.participants.map(p =>
+            `<option value="${escapeAttr(p.id)}" ${p.id === draft.to ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+        ).join('');
+        return `
+            <div class="sheet-title">精算を記録</div>
+            <div class="form-row" style="margin-bottom:18px;">
+                <div>
+                    <label class="form-label">支払う人</label>
+                    <div class="select-wrap"><select data-field="settleFrom">${fromOpts}</select></div>
+                </div>
+                <div>
+                    <label class="form-label">受け取る人</label>
+                    <div class="select-wrap"><select data-field="settleTo">${toOpts}</select></div>
+                </div>
+            </div>
+            <div class="form-section">
+                <label class="form-label">金額</label>
+                <input class="amount-input" data-field="settleAmount" type="number" inputmode="decimal" step="${CURRENCIES[data.currency].decimals === 0 ? '1' : '0.01'}" value="${draft.amount}">
+            </div>
+            <div class="form-section">
+                <label class="form-label">日付</label>
+                <input data-field="settleDate" type="date" value="${escapeAttr(draft.date)}">
+            </div>
+            <button class="btn-primary" data-action="confirm-settle">記録する</button>
+        `;
+    }
+
+    function sheetShare() {
+        const url = shareUrl(state.currentRoomId);
+        return `
+            <div class="sheet-title">共有して同期</div>
+            <div class="helper" style="margin-bottom:14px;">このリンクを彼女に送れば、別のデバイスからでも同じトリカウントを開いて自動同期できるよ💕</div>
+            <div style="text-align:center; margin-bottom:14px;">
+                <div class="helper" style="margin-bottom:6px;">同期ID</div>
+                <span class="room-pill">${escapeHtml(state.currentRoomId)}</span>
+            </div>
+            <div class="share-link-box">${escapeHtml(url)}</div>
+            <button class="btn-primary" data-action="copy-link" data-link="${escapeAttr(url)}">リンクをコピー</button>
+            <button class="btn-secondary" style="margin-top:10px;" data-action="share-system" data-link="${escapeAttr(url)}">他のアプリで共有</button>
+        `;
+    }
+
+    function sheetSettings() {
+        const data = state.currentData;
+        const meta = state.tricounts.find(t => t.roomId === state.currentRoomId);
+        const draft = state.sheetData = state.sheetData || {
+            name: data.name,
+            emoji: data.emoji,
+            description: data.description,
+            currency: data.currency,
+            myId: meta ? meta.myId : null,
+        };
+        const emojiBtns = EMOJI_PRESETS.map(em => `
+            <button data-action="settings-emoji" data-emoji="${escapeAttr(em)}" class="${em === draft.emoji ? 'selected' : ''}">${em}</button>
+        `).join('');
+        const currencyOpts = Object.keys(CURRENCIES).map(k =>
+            `<option value="${k}" ${k === draft.currency ? 'selected' : ''}>${escapeHtml(CURRENCIES[k].label)}</option>`
+        ).join('');
+        const myOpts = (data.participants || []).map(p =>
+            `<option value="${escapeAttr(p.id)}" ${p.id === draft.myId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+        ).join('');
+        const participantsHtml = (data.participants || []).map(p => `
+            <div class="chip">
+                <input data-rename-existing="${escapeAttr(p.id)}" value="${escapeAttr(p.name)}" style="background:none;border:none;padding:0;width:auto;min-width:60px;font-size:14px;color:inherit;">
+                ${(data.participants || []).length > 1 ? `<button data-action="remove-existing-p" data-id="${escapeAttr(p.id)}" aria-label="Remove">×</button>` : ''}
+            </div>
+        `).join('');
+
+        return `
+            <div class="sheet-title">トリカウント設定</div>
+            <div class="form-section">
+                <label class="form-label">名前</label>
+                <input data-field="settingsName" value="${escapeAttr(draft.name)}" maxlength="40">
+            </div>
+            <div class="form-section">
+                <label class="form-label">アイコン</label>
+                <div class="emoji-grid">${emojiBtns}</div>
+            </div>
+            <div class="form-section">
+                <label class="form-label">説明</label>
+                <input data-field="settingsDesc" value="${escapeAttr(draft.description || '')}" maxlength="80">
+            </div>
+            <div class="form-section">
+                <label class="form-label">通貨</label>
+                <div class="select-wrap"><select data-field="settingsCurrency">${currencyOpts}</select></div>
+            </div>
+            <div class="form-section">
+                <label class="form-label">あなたは？</label>
+                <div class="select-wrap"><select data-field="settingsMyId">${myOpts}</select></div>
+            </div>
+            <div class="form-section">
+                <label class="form-label">参加者</label>
+                <div class="chip-list">${participantsHtml}</div>
+                <div class="chip-add-input">
+                    <input data-field="settingsAddP" placeholder="名前を追加" maxlength="20">
+                    <button data-action="settings-add-p">追加</button>
+                </div>
+            </div>
+            <button class="btn-primary" data-action="confirm-settings">保存</button>
+            <button class="btn-danger" style="margin-top:10px;" data-action="delete-tricount">このトリカウントを削除</button>
+            <div class="helper" style="margin-top:6px;">※ 削除はこの端末からだけ。彼女の端末にはまだ残ります。</div>
+        `;
+    }
+
+    function sheetJoinPick() {
+        const join = state.pendingJoinRoom;
+        if (!join) return '<div class="sheet-title">読み込み中…</div>';
+        const partsHtml = (join.data.participants || []).map(p => `
+            <button class="balance-row pressable" style="width:100%; border:none; cursor:pointer; text-align:left;" data-action="pick-join" data-id="${escapeAttr(p.id)}">
+                <span class="name">${escapeHtml(p.name)}</span>
+                <span class="amt">›</span>
+            </button>
+        `).join('');
+        return `
+            <div class="sheet-title">${escapeHtml(join.data.emoji || '💰')} ${escapeHtml(join.data.name)} に参加</div>
+            <div class="helper" style="margin-bottom:14px;">あなたはどの参加者ですか？</div>
+            <div class="balance-list" style="margin-bottom:16px;">${partsHtml}</div>
+            <div class="helper" style="margin-bottom:8px;">該当する人がいない場合は新しく追加：</div>
+            <div class="chip-add-input">
+                <input data-field="newJoinName" placeholder="あなたの名前" maxlength="20">
+                <button data-action="join-as-new">追加して参加</button>
+            </div>
+            <button class="btn-secondary" style="margin-top:14px;" data-action="cancel-join">キャンセル</button>
+        `;
+    }
+
+    function sheetJoinManual() {
+        return `
+            <div class="sheet-title">同期IDで参加</div>
+            <div class="helper" style="margin-bottom:14px;">彼女が共有してくれた同期ID（8文字）を入力してね。</div>
+            <input data-field="joinCode" placeholder="例: A1B2C3D4" maxlength="8" style="text-transform:uppercase; letter-spacing:2px; font-family:monospace; font-size:18px; text-align:center;">
+            <button class="btn-primary" style="margin-top:14px;" data-action="confirm-join">参加する</button>
+        `;
+    }
+
+    function sheetHelp() {
+        return `
+            <div class="sheet-title">使い方</div>
+            <div style="line-height:1.7; font-size:14px; color:var(--text-secondary);">
+                <p style="color:var(--text); font-weight:600;">📒 トリカウント</p>
+                <p style="margin-bottom:12px;">旅行・同棲・ルームシェアなど、グループごとに支払いを記録するノートだよ。</p>
+
+                <p style="color:var(--text); font-weight:600;">💸 支出 / 収入 / 送金</p>
+                <p style="margin-bottom:12px;">「支出」は誰かが立て替えた金額。均等にも個別指定にも分けられる。「収入」は逆。「送金」は人から人へのお金の受け渡し（精算）。</p>
+
+                <p style="color:var(--text); font-weight:600;">🔗 自動同期</p>
+                <p style="margin-bottom:12px;">右上のシェアからリンクを送ると、別の端末でもまったく同じデータをリアルタイムで共有できる。Firebase経由で常時バックアップされ、端末側のローカルキャッシュにも自動保存されるからデータは消えない。</p>
+
+                <p style="color:var(--text); font-weight:600;">⚖️ 残高</p>
+                <p>各メンバーの残高（プラス=もらえる、マイナス=払う）と、最少回数の精算プランを自動計算するよ。</p>
+            </div>
+            <button class="btn-primary" style="margin-top:18px;" data-action="close-sheet">OK</button>
+        `;
+    }
+
+    function shareUrl(roomId) {
+        const url = new URL(window.location.href);
+        url.search = '?room=' + roomId;
+        return url.toString();
+    }
+
+    // ------------------------------------------------------------------
+    // Event binding
+    // ------------------------------------------------------------------
+    function bindEvents() {
+        // Generic data-action click delegation
+        app.querySelectorAll('[data-action]').forEach(el => {
+            el.addEventListener('click', (ev) => {
+                const action = el.dataset.action;
+                handleAction(action, el, ev);
+            });
         });
+        // Sheet click outside-to-close
+        const backdrop = app.querySelector('.sheet-backdrop');
+        if (backdrop) {
+            const sheet = backdrop.querySelector('.sheet');
+            sheet && sheet.addEventListener('click', e => e.stopPropagation());
+        }
+        // Live form bindings
+        bindFormFields();
+    }
 
-        // 表示更新
-        function updateDisplay() {
-            // 集計
-            let youPaid = 0;
-            let partnerPaid = 0;
-            let youShare = 0;
-            let partnerShare = 0;
+    function bindFormFields() {
+        // New tricount sheet
+        if (state.sheet === 'newTricount') {
+            const draft = state.sheetData;
+            const setBy = (sel, key) => {
+                const el = app.querySelector(sel);
+                if (el) el.addEventListener('input', () => { draft[key] = el.value; });
+            };
+            setBy('[data-field="name"]', 'name');
+            setBy('[data-field="description"]', 'description');
+            const cur = app.querySelector('[data-field="currency"]');
+            if (cur) cur.addEventListener('change', () => { draft.currency = cur.value; });
+            const myId = app.querySelector('[data-field="myId"]');
+            if (myId) myId.addEventListener('change', () => { draft.myId = myId.value; });
+            // Rename inline
+            app.querySelectorAll('[data-rename]').forEach(input => {
+                input.addEventListener('input', () => {
+                    const id = input.dataset.rename;
+                    const p = draft.participants.find(p => p.id === id);
+                    if (p) p.name = input.value;
+                });
+            });
+        }
 
-            payments.forEach(p => {
-                if (p.payer === 'you') {
-                    youPaid += p.total;
+        if (state.sheet === 'addExpense' || state.sheet === 'editExpense') {
+            const draft = state.sheetData;
+            const data = state.currentData;
+            const titleEl = app.querySelector('[data-field="title"]');
+            if (titleEl) titleEl.addEventListener('input', () => { draft.title = titleEl.value; });
+            const amountEl = app.querySelector('[data-field="amount"]');
+            if (amountEl) amountEl.addEventListener('input', () => {
+                draft.amount = parseFloat(amountEl.value) || 0;
+                if (draft.splitMode === 'equal') {
+                    const included = draft.splits.filter(s => s.included);
+                    const eq = distributeEqually(draft.amount, included.length, data.currency);
+                    included.forEach((s, i) => { s.amount = eq[i] || 0; });
+                    // Update visible amounts only
+                    app.querySelectorAll('.split-amount').forEach((el, idx) => {
+                        const matchSplit = draft.splits.filter(s => s.included)[idx];
+                        if (matchSplit) el.textContent = formatMoney(matchSplit.amount, data.currency);
+                    });
+                }
+            });
+            const paidByEl = app.querySelector('[data-field="paidBy"]');
+            if (paidByEl) paidByEl.addEventListener('change', () => { draft.paidBy = paidByEl.value; });
+            const dateEl = app.querySelector('[data-field="date"]');
+            if (dateEl) dateEl.addEventListener('change', () => { draft.date = dateEl.value; });
+            // Custom split amounts
+            app.querySelectorAll('[data-split-amount]').forEach(el => {
+                el.addEventListener('input', () => {
+                    const id = el.dataset.splitAmount;
+                    const s = draft.splits.find(x => x.participantId === id);
+                    if (s) s.amount = parseFloat(el.value) || 0;
+                });
+            });
+            // Transfer recipient
+            const trEl = app.querySelector('[data-field="transferTo"]');
+            if (trEl) trEl.addEventListener('change', () => {
+                draft.splits.forEach(s => { s.included = false; s.amount = 0; });
+                let rec = draft.splits.find(s => s.participantId === trEl.value);
+                if (!rec) {
+                    rec = { participantId: trEl.value, amount: draft.amount, included: true };
+                    draft.splits.push(rec);
                 } else {
-                    partnerPaid += p.total;
-                }
-                youShare += p.youAmount;
-                partnerShare += p.partnerAmount;
-            });
-
-            document.getElementById('youPaid').textContent = formatMoney(youPaid);
-            document.getElementById('partnerPaid').textContent = formatMoney(partnerPaid);
-            document.getElementById('youShare').textContent = formatMoney(youShare);
-            document.getElementById('partnerShare').textContent = formatMoney(partnerShare);
-
-            // 精算計算
-            const balance = youPaid - youShare;
-
-            const summaryResult = document.getElementById('summaryResult');
-            const summaryDetail = document.getElementById('summaryDetail');
-            const settleBtn = document.getElementById('settleBtn');
-
-            if (payments.length === 0) {
-                summaryResult.textContent = '精算なし';
-                summaryDetail.textContent = '支払いを登録してください';
-                settleBtn.style.display = 'none';
-            } else if (balance > 0) {
-                summaryResult.textContent = `レベッカ → たつや`;
-                summaryDetail.textContent = `レベッカがたつやに ${formatMoney(balance)} 払う💸`;
-                settleBtn.style.display = 'block';
-            } else if (balance < 0) {
-                summaryResult.textContent = `たつや → レベッカ`;
-                summaryDetail.textContent = `たつやがレベッカに ${formatMoney(-balance)} 払う💸`;
-                settleBtn.style.display = 'block';
-            } else {
-                summaryResult.textContent = '精算済み ✨';
-                summaryDetail.textContent = '二人仲良く均等だね💕';
-                settleBtn.style.display = payments.length > 0 ? 'block' : 'none';
-            }
-
-            // 履歴表示
-            const historyList = document.getElementById('historyList');
-            if (payments.length === 0) {
-                historyList.innerHTML = '<div class="empty-state">まだ登録がありません</div>';
-            } else {
-                historyList.innerHTML = payments
-                    .sort((a, b) => new Date(b.date) - new Date(a.date))
-                    .map(p => `
-                        <div class="history-item">
-                            <div class="history-info">
-                                <div class="history-title">${escapeHtml(p.description)}</div>
-                                <div class="history-meta">${formatDate(p.date)} • ${p.payer === 'you' ? 'たつや' : 'レベッカ'}が支払い</div>
-                            </div>
-                            <div class="history-amount">
-                                <div class="history-total">${formatMoney(p.total)}</div>
-                                <div class="history-split">たつや${formatMoney(p.youAmount)} / レベッカ${formatMoney(p.partnerAmount)}</div>
-                            </div>
-                            <div class="history-actions">
-                                <button onclick="openEditModal(${p.id})" title="編集">✏️</button>
-                                <button onclick="deletePayment(${p.id})" title="削除">🗑️</button>
-                            </div>
-                        </div>
-                    `).join('');
-            }
-
-            // 精算履歴表示
-            const settleHistory = document.getElementById('settleHistory');
-            const settleList = document.getElementById('settleList');
-            if (settlements.length > 0) {
-                settleHistory.style.display = 'block';
-                settleList.innerHTML = settlements
-                    .sort((a, b) => new Date(b.date) - new Date(a.date))
-                    .slice(0, 5)
-                    .map(s => `
-                        <div class="settle-item">
-                            <span>${formatDate(s.date)} - ${s.payer === 'you' ? 'たつや' : 'レベッカ'}が${s.receiver === 'you' ? 'たつや' : 'レベッカ'}に ${formatMoney(s.amount)} 支払い</span>
-                            <button onclick="undoSettle(${s.id})" title="取り消し">↩️</button>
-                        </div>
-                    `).join('');
-            } else {
-                settleHistory.style.display = 'none';
-            }
-        }
-
-        // 支払い削除
-        function deletePayment(id) {
-            if (confirm('この支払いを削除しますか？')) {
-                payments = payments.filter(p => p.id !== id);
-                saveData();
-                updateDisplay();
-            }
-        }
-
-        // 編集モーダルを開く
-        function openEditModal(id) {
-            const payment = payments.find(p => p.id === id);
-            if (!payment) return;
-
-            document.getElementById('editId').value = id;
-            document.getElementById('editDate').value = payment.date;
-            document.getElementById('editDescription').value = payment.description;
-            document.getElementById('editTotal').value = payment.total;
-            document.getElementById('editYouAmount').value = payment.youAmount;
-            document.getElementById('editPartnerAmount').value = payment.partnerAmount;
-
-            document.querySelectorAll('#editPayerToggle .payer-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.dataset.payer === payment.payer) {
-                    btn.classList.add('active');
+                    rec.included = true;
+                    rec.amount = draft.amount;
                 }
             });
-
-            document.getElementById('editModal').classList.add('active');
         }
 
-        // 編集モーダルを閉じる
-        function closeEditModal() {
-            document.getElementById('editModal').classList.remove('active');
-        }
-
-        // 編集フォーム送信
-        document.getElementById('editForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const id = parseInt(document.getElementById('editId').value);
-            const index = payments.findIndex(p => p.id === id);
-            if (index === -1) return;
-
-            payments[index] = {
-                id: id,
-                date: document.getElementById('editDate').value,
-                description: document.getElementById('editDescription').value,
-                total: parseInt(document.getElementById('editTotal').value),
-                payer: document.querySelector('#editPayerToggle .payer-btn.active').dataset.payer,
-                youAmount: parseInt(document.getElementById('editYouAmount').value),
-                partnerAmount: parseInt(document.getElementById('editPartnerAmount').value)
+        if (state.sheet === 'settings') {
+            const draft = state.sheetData;
+            const data = state.currentData;
+            const map = {
+                settingsName: 'name',
+                settingsDesc: 'description',
             };
-
-            saveData();
-            updateDisplay();
-            closeEditModal();
-        });
-
-        // モーダル外クリックで閉じる
-        document.getElementById('editModal').addEventListener('click', function(e) {
-            if (e.target === this) closeEditModal();
-        });
-
-        // 精算モーダル
-        function openSettleModal() {
-            // 現在の精算額を計算
-            let youPaid = 0, youShare = 0;
-            payments.forEach(p => {
-                if (p.payer === 'you') youPaid += p.total;
-                youShare += p.youAmount;
+            Object.keys(map).forEach(f => {
+                const el = app.querySelector(`[data-field="${f}"]`);
+                if (el) el.addEventListener('input', () => { draft[map[f]] = el.value; });
             });
-            const balance = youPaid - youShare;
-
-            const label = document.getElementById('settleLabel');
-            const amountInput = document.getElementById('settleAmount');
-
-            if (balance > 0) {
-                label.textContent = `レベッカがたつやに払う金額`;
-            } else {
-                label.textContent = `たつやがレベッカに払う金額`;
-            }
-            amountInput.value = Math.abs(balance);
-
-            document.getElementById('settleModal').classList.add('active');
-        }
-
-        function closeSettleModal() {
-            document.getElementById('settleModal').classList.remove('active');
-        }
-
-        function confirmSettle() {
-            const amount = parseInt(document.getElementById('settleAmount').value);
-            if (!amount || amount <= 0) {
-                alert('金額を入力してください');
-                return;
-            }
-
-            // 誰が誰に払ったかを計算
-            let youPaid = 0, youShare = 0;
-            payments.forEach(p => {
-                if (p.payer === 'you') youPaid += p.total;
-                youShare += p.youAmount;
+            const cur = app.querySelector('[data-field="settingsCurrency"]');
+            if (cur) cur.addEventListener('change', () => { draft.currency = cur.value; });
+            const my = app.querySelector('[data-field="settingsMyId"]');
+            if (my) my.addEventListener('change', () => { draft.myId = my.value; });
+            // Rename existing participants live
+            app.querySelectorAll('[data-rename-existing]').forEach(input => {
+                input.addEventListener('change', () => {
+                    const id = input.dataset.renameExisting;
+                    renameParticipant(id, input.value);
+                });
             });
-            const balance = youPaid - youShare;
-
-            const settlement = {
-                id: Date.now(),
-                date: new Date().toISOString().split('T')[0],
-                amount: amount,
-                payer: balance > 0 ? 'partner' : 'you',
-                receiver: balance > 0 ? 'you' : 'partner',
-                backupPayments: [...payments] // 取り消し用にバックアップ
-            };
-
-            settlements.push(settlement);
-            payments = []; // 支払い履歴をリセット
-            saveData();
-            updateDisplay();
-            closeSettleModal();
         }
 
-        document.getElementById('settleModal').addEventListener('click', function(e) {
-            if (e.target === this) closeSettleModal();
-        });
+        if (state.sheet === 'addSettle') {
+            const draft = state.sheetData;
+            const fromEl = app.querySelector('[data-field="settleFrom"]');
+            if (fromEl) fromEl.addEventListener('change', () => { draft.from = fromEl.value; });
+            const toEl = app.querySelector('[data-field="settleTo"]');
+            if (toEl) toEl.addEventListener('change', () => { draft.to = toEl.value; });
+            const amtEl = app.querySelector('[data-field="settleAmount"]');
+            if (amtEl) amtEl.addEventListener('input', () => { draft.amount = parseFloat(amtEl.value) || 0; });
+            const dateEl = app.querySelector('[data-field="settleDate"]');
+            if (dateEl) dateEl.addEventListener('change', () => { draft.date = dateEl.value; });
+        }
+    }
 
-        // 精算を取り消し
-        function undoSettle(id) {
-            if (!confirm('この精算を取り消しますか？\n支払い履歴が復元されます。')) return;
-
-            const settlement = settlements.find(s => s.id === id);
-            if (!settlement) return;
-
-            // バックアップから支払い履歴を復元
-            if (settlement.backupPayments && settlement.backupPayments.length > 0) {
-                payments = [...payments, ...settlement.backupPayments];
+    function handleAction(action, el, ev) {
+        switch (action) {
+            case 'open-tricount': {
+                openTricount(el.dataset.room);
+                break;
             }
-
-            // 精算を削除
-            settlements = settlements.filter(s => s.id !== id);
-            saveData();
-            updateDisplay();
+            case 'back-home': {
+                exitTricount();
+                break;
+            }
+            case 'new-tricount': {
+                state.sheet = 'newTricount';
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'pick-emoji': {
+                if (state.sheetData) state.sheetData.emoji = el.dataset.emoji;
+                render();
+                break;
+            }
+            case 'add-draft-p': {
+                ev.stopPropagation();
+                const input = app.querySelector('[data-field="newP"]');
+                const name = (input.value || '').trim();
+                if (!name) return;
+                state.sheetData.participants.push({ id: uid('p_'), name });
+                input.value = '';
+                render();
+                break;
+            }
+            case 'remove-draft-p': {
+                ev.stopPropagation();
+                const id = el.dataset.id;
+                state.sheetData.participants = state.sheetData.participants.filter(p => p.id !== id);
+                if (state.sheetData.myId === id) state.sheetData.myId = state.sheetData.participants[0] && state.sheetData.participants[0].id;
+                render();
+                break;
+            }
+            case 'confirm-new-tricount': {
+                const draft = state.sheetData;
+                if (!draft.name.trim()) return showToast('名前を入れてね');
+                if (draft.participants.length < 1) return showToast('参加者が必要だよ');
+                if (!draft.myId) draft.myId = draft.participants[0].id;
+                createTricount({
+                    name: draft.name.trim(),
+                    emoji: draft.emoji,
+                    description: draft.description.trim(),
+                    currency: draft.currency,
+                    participants: draft.participants.map(p => ({ id: p.id, name: p.name.trim() || '?' })),
+                    myId: draft.myId,
+                });
+                state.sheet = null;
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'close-sheet': {
+                state.sheet = null;
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'add-expense': {
+                state.sheet = 'addExpense';
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'open-expense': {
+                state.sheet = 'editExpense';
+                state.sheetData = { id: el.dataset.id };
+                render();
+                break;
+            }
+            case 'open-settle': {
+                state.sheet = 'editSettle';
+                state.sheetData = { id: el.dataset.id };
+                render();
+                break;
+            }
+            case 'set-type': {
+                const draft = state.sheetData;
+                draft.type = el.dataset.type;
+                if (draft.type === 'transfer') {
+                    // Pick first non-payer as recipient
+                    const data = state.currentData;
+                    const recipient = data.participants.find(p => p.id !== draft.paidBy) || data.participants[0];
+                    draft.splits = draft.splits.map(s => ({ ...s, included: false, amount: 0 }));
+                    let rec = draft.splits.find(s => s.participantId === recipient.id);
+                    if (!rec) {
+                        rec = { participantId: recipient.id, amount: draft.amount, included: true };
+                        draft.splits.push(rec);
+                    } else {
+                        rec.included = true;
+                        rec.amount = draft.amount;
+                    }
+                    draft.splitMode = 'custom';
+                } else {
+                    draft.splitMode = 'equal';
+                    state.currentData.participants.forEach(p => {
+                        if (!draft.splits.find(s => s.participantId === p.id)) {
+                            draft.splits.push({ participantId: p.id, amount: 0, included: true });
+                        } else {
+                            const s = draft.splits.find(s => s.participantId === p.id);
+                            s.included = true;
+                        }
+                    });
+                }
+                render();
+                break;
+            }
+            case 'toggle-split': {
+                const id = el.dataset.id;
+                const s = state.sheetData.splits.find(x => x.participantId === id);
+                if (s) s.included = !s.included;
+                render();
+                break;
+            }
+            case 'toggle-split-mode': {
+                state.sheetData.splitMode = state.sheetData.splitMode === 'equal' ? 'custom' : 'equal';
+                render();
+                break;
+            }
+            case 'confirm-expense': {
+                const draft = state.sheetData;
+                const data = state.currentData;
+                if (!draft.title.trim()) return showToast('タイトルを入れてね');
+                if (!draft.amount || draft.amount <= 0) return showToast('金額を入れてね');
+                if (!draft.paidBy) return showToast('払った人を選んでね');
+                let splits;
+                if (draft.type === 'transfer') {
+                    const rec = draft.splits.find(s => s.included);
+                    if (!rec || rec.participantId === draft.paidBy) return showToast('受取人を選んでね');
+                    splits = [{ participantId: rec.participantId, amount: draft.amount }];
+                } else {
+                    const included = draft.splits.filter(s => s.included);
+                    if (included.length === 0) return showToast('割り勘する人を1人以上選んでね');
+                    if (draft.splitMode === 'equal') {
+                        const eq = distributeEqually(draft.amount, included.length, data.currency);
+                        splits = included.map((s, i) => ({ participantId: s.participantId, amount: eq[i] }));
+                    } else {
+                        const sum = included.reduce((acc, s) => acc + Number(s.amount || 0), 0);
+                        if (Math.abs(sum - draft.amount) > 0.01) return showToast('割り勘の合計が金額と一致しないよ');
+                        splits = included.map(s => ({ participantId: s.participantId, amount: Number(s.amount) || 0 }));
+                    }
+                }
+                const expense = {
+                    id: draft.id || uid('e_'),
+                    type: draft.type,
+                    title: draft.title.trim(),
+                    amount: roundForCurrency(draft.amount, data.currency),
+                    paidBy: draft.paidBy,
+                    date: draft.date,
+                    splits,
+                    createdAt: draft.createdAt || Date.now(),
+                };
+                if (draft.id) updateExpense(expense); else addExpense(expense);
+                state.sheet = null;
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'delete-expense': {
+                if (!confirm('この支払いを削除しますか？')) return;
+                deleteExpense(el.dataset.id);
+                state.sheet = null;
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'open-share': {
+                state.sheet = 'share';
+                render();
+                break;
+            }
+            case 'copy-link': {
+                const link = el.dataset.link;
+                copyToClipboard(link);
+                break;
+            }
+            case 'share-system': {
+                const link = el.dataset.link;
+                if (navigator.share) {
+                    navigator.share({ title: 'warikan', url: link }).catch(() => {});
+                } else {
+                    copyToClipboard(link);
+                }
+                break;
+            }
+            case 'open-settings': {
+                state.sheet = 'settings';
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'settings-emoji': {
+                state.sheetData.emoji = el.dataset.emoji;
+                render();
+                break;
+            }
+            case 'settings-add-p': {
+                ev.stopPropagation();
+                const input = app.querySelector('[data-field="settingsAddP"]');
+                const name = (input.value || '').trim();
+                if (!name) return;
+                addParticipant(name);
+                render();
+                break;
+            }
+            case 'remove-existing-p': {
+                ev.stopPropagation();
+                if (!confirm('この参加者を削除しますか？')) return;
+                removeParticipant(el.dataset.id);
+                render();
+                break;
+            }
+            case 'confirm-settings': {
+                const draft = state.sheetData;
+                const data = state.currentData;
+                if (!draft.name.trim()) return showToast('名前を入れてね');
+                data.name = draft.name.trim();
+                data.emoji = draft.emoji;
+                data.description = (draft.description || '').trim();
+                data.currency = draft.currency;
+                pushCurrentRoom();
+                // Update myId on local meta
+                const meta = state.tricounts.find(t => t.roomId === state.currentRoomId);
+                if (meta && draft.myId) { meta.myId = draft.myId; saveTricounts(); }
+                state.sheet = null;
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'delete-tricount': {
+                if (!confirm('このトリカウントをこの端末から削除しますか？\n他の端末には残ります。')) return;
+                const rid = state.currentRoomId;
+                state.sheet = null;
+                state.sheetData = null;
+                deleteTricount(rid);
+                render();
+                break;
+            }
+            case 'pick-join': {
+                completeJoin(el.dataset.id);
+                break;
+            }
+            case 'join-as-new': {
+                const input = app.querySelector('[data-field="newJoinName"]');
+                const name = (input.value || '').trim();
+                if (!name) return showToast('名前を入れてね');
+                joinAsNewParticipant(name);
+                break;
+            }
+            case 'cancel-join': {
+                state.pendingJoinRoom = null;
+                state.sheet = null;
+                // Clean URL
+                const url = new URL(window.location);
+                url.searchParams.delete('room');
+                window.history.replaceState({}, '', url);
+                render();
+                break;
+            }
+            case 'show-join': {
+                state.sheet = 'join';
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'confirm-join': {
+                const input = app.querySelector('[data-field="joinCode"]');
+                const code = (input.value || '').trim().toUpperCase();
+                if (!code) return showToast('IDを入れてね');
+                state.sheet = null;
+                state.sheetData = null;
+                // Trigger join flow
+                const url = new URL(window.location);
+                url.searchParams.set('room', code);
+                window.history.replaceState({}, '', url);
+                tryJoinFromUrl();
+                break;
+            }
+            case 'show-help': {
+                state.sheet = 'help';
+                render();
+                break;
+            }
+            case 'quick-settle': {
+                state.sheet = 'addSettle';
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'confirm-settle': {
+                const draft = state.sheetData;
+                const data = state.currentData;
+                if (!draft.amount || draft.amount <= 0) return showToast('金額を入れてね');
+                if (draft.from === draft.to) return showToast('別の人を選んでね');
+                addSettlement({
+                    id: uid('s_'),
+                    from: draft.from,
+                    to: draft.to,
+                    amount: roundForCurrency(draft.amount, data.currency),
+                    date: draft.date || todayISO(),
+                });
+                state.sheet = null;
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'delete-settle': {
+                if (!confirm('この精算を取り消しますか？')) return;
+                deleteSettlement(el.dataset.id);
+                state.sheet = null;
+                state.sheetData = null;
+                render();
+                break;
+            }
         }
+    }
 
-        // データ保存（ローカル + Firebase）
-        function saveData() {
-            saveLocalData();
-            saveToFirebase();
+    function copyToClipboard(text) {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(
+                () => showToast('リンクをコピーしたよ💕'),
+                () => fallbackCopy(text)
+            );
+        } else {
+            fallbackCopy(text);
         }
+    }
+    function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); showToast('リンクをコピーしたよ💕'); }
+        catch { prompt('リンク', text); }
+        document.body.removeChild(ta);
+    }
 
-        // ローカルデータ保存
-        function saveLocalData() {
-            localStorage.setItem('warikan_payments', JSON.stringify(payments));
-            localStorage.setItem('warikan_settlements', JSON.stringify(settlements));
-        }
+    // ------------------------------------------------------------------
+    // Boot
+    // ------------------------------------------------------------------
+    function boot() {
+        state.tricounts = loadTricounts();
+        migrateLegacy();
+        render();
+        tryJoinFromUrl();
 
-        // フォーマット関数
-        function formatMoney(amount) {
-            return '¥' + amount.toLocaleString();
-        }
+        // Online/offline detection
+        window.addEventListener('online', () => {
+            if (state.currentRoomId && state.currentData) {
+                state.syncStatus = 'syncing';
+                pushCurrentRoom();
+            }
+        });
+        window.addEventListener('offline', () => {
+            state.syncStatus = 'offline';
+            render();
+        });
+    }
 
-        function formatDate(dateStr) {
-            const d = new Date(dateStr);
-            return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // 起動
-        init();
+    boot();
     </script>
 </body>
 </html>
