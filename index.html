@@ -929,9 +929,12 @@
 
     // Authoritative snapshot of the couple's real sync room (rooms/NJ81Z5),
     // embedded so recovery never depends on a network read succeeding.
+    const EMBEDDED_VERSION = 3;
     const EMBEDDED_LEGACY = {
         roomId: 'NJ81Z5',
+        version: EMBEDDED_VERSION,
         payments: [
+            // --- rooms/NJ81Z5 original sync data ---
             { date: '2026-02-21', description: 'Amazon（米とかちっちゃい家具とか）', id: 1771639725220, payer: 'you', total: 10000, youAmount: 5000, partnerAmount: 5000 },
             { date: '2026-02-21', description: '電気代(2月)', id: 1771640476148, payer: 'you', total: 5000, youAmount: 2500, partnerAmount: 2500 },
             { date: '2026-02-21', description: 'ガス代(2月)', id: 1771640498956, payer: 'you', total: 2500, youAmount: 1250, partnerAmount: 1250 },
@@ -943,8 +946,23 @@
             { date: '2026-02-03', description: '引っ越し', id: 2, payer: 'partner', total: 42998, youAmount: 21499, partnerAmount: 21499 },
             { date: '2026-02-03', description: 'テレビ', id: 3, payer: 'you', total: 56000, youAmount: 33600, partnerAmount: 22400 },
             { date: '2026-02-03', description: 'カーテンとテレビ台', id: 4, payer: 'you', total: 13819, youAmount: 8291, partnerAmount: 5528 },
+            // --- 3〜4月の追加分（内訳不明のため 50/50）---
+            { date: '2026-04-25', description: 'Netflix（3月）', id: 2026001, payer: 'partner', total: 2290, youAmount: 1145, partnerAmount: 1145 },
+            { date: '2026-04-25', description: 'ガス(4月)', id: 2026002, payer: 'you', total: 4547, youAmount: 2274, partnerAmount: 2273 },
+            { date: '2026-04-25', description: '電気(4月)', id: 2026003, payer: 'you', total: 7562, youAmount: 3781, partnerAmount: 3781 },
+            { date: '2026-04-18', description: 'PASMO', id: 2026004, payer: 'you', total: 10000, youAmount: 5000, partnerAmount: 5000 },
+            { date: '2026-04-11', description: '水道（2月）', id: 2026005, payer: 'you', total: 1600, youAmount: 800, partnerAmount: 800 },
+            { date: '2026-04-11', description: 'メガネ', id: 2026006, payer: 'you', total: 21000, youAmount: 10500, partnerAmount: 10500 },
+            { date: '2026-03-22', description: 'Netflix（3月）', id: 2026007, payer: 'partner', total: 2290, youAmount: 1145, partnerAmount: 1145 },
+            { date: '2026-03-22', description: '電気（3月）', id: 2026008, payer: 'you', total: 7951, youAmount: 3976, partnerAmount: 3975 },
+            { date: '2026-03-22', description: 'ガス（3月）', id: 2026009, payer: 'you', total: 4392, youAmount: 2196, partnerAmount: 2196 },
         ],
-        settlements: [],
+        settlements: [
+            // レベッカ → たつや 返金
+            { date: '2026-04-25', amount: 41736, payer: 'partner', receiver: 'you' },
+            // 全部精算（残高ゼロ）にするための最終調整
+            { date: '2026-05-16', amount: 422, payer: 'you', receiver: 'partner' },
+        ],
     };
 
     // ------------------------------------------------------------------
@@ -1482,14 +1500,30 @@
     // read involved, so this cannot fail; dedupe-guarded to run only once.
     function recoverEmbedded() {
         const e = EMBEDDED_LEGACY;
-        if (state.tricounts.some(t => t && t.recoveredFrom === e.roomId)) return;
+        const existing = state.tricounts.find(t => t && t.recoveredFrom === e.roomId);
+        if (existing && existing.embeddedVersion === e.version) return;
         const tc = buildLegacyTricount(e.payments, e.settlements, {
             recoveredFrom: e.roomId,
             name: 'たつや ♡ レベッカ',
             description: '同期データを復元 (' + e.roomId + ')',
         });
-        addTricountGuarded(tc, 'recoveredFrom', e.roomId).then(() => {
-            showToast('履歴を復元したよ💕 (' + e.payments.length + '件)');
+        tc.embeddedVersion = e.version;
+        // Replace any older recovered copy so the corrected, settled data wins.
+        db.ref(SHARED_PATH).transaction((curr) => {
+            curr = curr || { tricounts: [] };
+            curr.tricounts = curr.tricounts || [];
+            const cur = curr.tricounts.find(t => t && t.recoveredFrom === e.roomId);
+            if (cur && cur.embeddedVersion === e.version) return curr;
+            const clean = { ...tc }; delete clean._myId;
+            curr.tricounts = curr.tricounts.filter(t => !(t && t.recoveredFrom === e.roomId));
+            curr.tricounts = [clean, ...curr.tricounts];
+            curr.updatedAt = Date.now();
+            return curr;
+        }).then((res) => {
+            if (res && res.committed) {
+                if (tc._myId) setMyId(tc.id, tc._myId);
+                showToast('履歴を復元・精算済みにしたよ💕');
+            }
         }).catch((err) => console.error('embedded recovery failed', err));
     }
 
