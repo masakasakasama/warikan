@@ -1541,14 +1541,23 @@
     // ------------------------------------------------------------------
     const app = document.getElementById('app');
 
+    function pickCoupleTC() {
+        const ts = state.tricounts || [];
+        return ts.find(t => t && t.recoveredFrom === 'NJ81Z5')
+            || ts.find(t => t && (t.recoveredFrom || t.migratedFrom))
+            || ts[0] || null;
+    }
+
     function render() {
         let html = '';
-        if (state.view === 'home') {
-            html = renderHome();
-        } else if (state.view === 'tricount' && state.currentData) {
+        const tc = pickCoupleTC();
+        if (tc) {
+            state.currentId = tc.id;
+            state.currentData = tc;
+            state.view = 'tricount';
             html = renderTricount();
         } else {
-            html = renderHome();
+            html = renderSplash();
         }
         if (state.sheet) {
             html += renderSheet();
@@ -1557,91 +1566,20 @@
         bindEvents();
     }
 
-    // ---- Home ----
-    function renderHome() {
-        const items = state.tricounts.length > 0
-            ? state.tricounts.map(t => {
-                let preview = t.description || ' ';
-                let previewColor = '';
-                {
-                    const cur = t.currency || 'JPY';
-                    const balances = computeBalances(t);
-                    const bal = balances[getMyId(t)] || 0;
-                    const hasItems = (t.expenses || []).length > 0 || (t.settlements || []).length > 0;
-                    if (!hasItems) {
-                        preview = t.description || 'まだ支払いなし';
-                    } else if (Math.abs(bal) < 0.01) {
-                        preview = '✓ 精算済み';
-                        previewColor = 'color: var(--success);';
-                    } else if (bal > 0) {
-                        preview = `+${formatMoney(bal, cur)} もらえる`;
-                        previewColor = 'color: var(--success);';
-                    } else {
-                        preview = `${formatMoney(bal, cur)} 払う`;
-                        previewColor = 'color: var(--danger);';
-                    }
-                }
-                return `
-                <div class="tricount-card pressable" data-action="open-tricount" data-id="${escapeAttr(t.id)}">
-                    <div class="tricount-emoji">${escapeHtml(t.emoji || '💰')}</div>
-                    <div class="tricount-info">
-                        <div class="tricount-name">${escapeHtml(t.name)}</div>
-                        <div class="tricount-desc" style="${previewColor}">${escapeHtml(preview)}</div>
-                    </div>
-                    <div class="tricount-arrow">›</div>
-                </div>
-                `;
-            }).join('')
-            : `<div class="empty-state">
-                <div class="emoji">💰</div>
-                <div class="title">トリカウントはまだないよ</div>
-                <div>下の＋から最初のグループを作ろう</div>
-              </div>`;
-
-        const syncCls = state.syncStatus === 'online' ? 'online'
-            : state.syncStatus === 'syncing' ? 'syncing'
-            : state.syncStatus === 'offline' ? 'offline' : '';
-        const syncText = state.syncStatus === 'online' ? '常時同期中'
-            : state.syncStatus === 'syncing' ? '接続中…'
-            : state.syncStatus === 'offline' ? 'オフライン（再接続待ち）'
-            : '同期準備中';
-
+    // ---- Splash (shown only briefly until the couple's data loads) ----
+    function renderSplash() {
+        const offline = state.syncStatus === 'offline';
         return `
             <div class="screen">
                 <div class="brand">
                     <div class="brand-logo">warikan</div>
-                    <div class="brand-sub">by you ♡ her</div>
+                    <div class="brand-sub">by たつや ♡ レベッカ</div>
                 </div>
-                <div class="scroll">
-                    ${state.tricounts.length > 0 ? `<div style="margin-bottom:10px;"><span class="sync-pill ${syncCls}"><span class="dot"></span>${escapeHtml(syncText)}</span></div>` : ''}
-                    <div class="tricount-card pressable" data-action="open-recover" style="background:var(--primary-soft); margin-bottom:14px;">
-                        <div class="tricount-emoji" style="background:transparent;">🔄</div>
-                        <div class="tricount-info">
-                            <div class="tricount-name" style="color:var(--primary);">旧データを復元</div>
-                            <div class="tricount-desc">前のアプリ／同期リンクの履歴を取り戻す</div>
-                        </div>
-                        <div class="tricount-arrow">›</div>
-                    </div>
-                    ${items}
+                <div class="empty-state" style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+                    <div class="emoji">💕</div>
+                    <div class="title">${offline ? 'オフライン（再接続待ち）' : 'よみこみ中…'}</div>
+                    <div>${offline ? 'ネットにつながると自動で表示されるよ' : 'データを準備しているよ'}</div>
                 </div>
-                <div class="fab-wrap">
-                    <button class="fab" data-action="new-tricount" aria-label="Add">+</button>
-                    <div class="fab-label">Add a tricount</div>
-                </div>
-                <nav class="bottom-nav">
-                    <div class="bottom-nav-item active">
-                        <div class="bottom-nav-icon">⇆</div>
-                        <div class="bottom-nav-label">tricounts</div>
-                    </div>
-                    <div class="bottom-nav-item" data-action="open-share-home">
-                        <div class="bottom-nav-icon">↗</div>
-                        <div class="bottom-nav-label">Share</div>
-                    </div>
-                    <div class="bottom-nav-item" data-action="show-help">
-                        <div class="bottom-nav-icon">？</div>
-                        <div class="bottom-nav-label">Help</div>
-                    </div>
-                </nav>
             </div>
         `;
     }
@@ -1727,10 +1665,9 @@
         return `
             <div class="screen">
                 <div class="topbar">
-                    <button class="topbar-back" data-action="back-home" aria-label="Back">‹</button>
-                    <div class="topbar-title">${escapeHtml(data.emoji || '')} ${escapeHtml(data.name)}</div>
+                    <div class="brand-logo" style="font-size:22px;">warikan</div>
+                    <div class="topbar-title" style="flex:1; text-align:right; font-size:15px; color:var(--text-secondary);">${escapeHtml(data.name)}</div>
                     <button class="topbar-action icon" data-action="open-settings" aria-label="Settings">⚙</button>
-                    <button class="topbar-action icon" data-action="open-share" aria-label="Share">↗</button>
                 </div>
                 <div class="scroll">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
