@@ -927,6 +927,26 @@
     // Old per-room sync data to auto-restore once into the shared node.
     const LEGACY_ROOMS = ['NJ81Z5'];
 
+    // Authoritative snapshot of the couple's real sync room (rooms/NJ81Z5),
+    // embedded so recovery never depends on a network read succeeding.
+    const EMBEDDED_LEGACY = {
+        roomId: 'NJ81Z5',
+        payments: [
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+        ],
+        settlements: [],
+    };
+
     // ------------------------------------------------------------------
     // State
     // ------------------------------------------------------------------
@@ -1456,6 +1476,21 @@
     function autoRecoverFromUrl() {
         const m = window.location.search.match(/[?&]room=([^&]+)/i);
         if (m && m[1]) recoverFromRoom(m[1], { silent: false });
+    }
+
+    // Restore the couple's real history from the embedded snapshot. No network
+    // read involved, so this cannot fail; dedupe-guarded to run only once.
+    function recoverEmbedded() {
+        const e = EMBEDDED_LEGACY;
+        if (state.tricounts.some(t => t && t.recoveredFrom === e.roomId)) return;
+        const tc = buildLegacyTricount(e.payments, e.settlements, {
+            recoveredFrom: e.roomId,
+            name: 'たつや ♡ レベッカ',
+            description: '同期データを復元 (' + e.roomId + ')',
+        });
+        addTricountGuarded(tc, 'recoveredFrom', e.roomId).then(() => {
+            showToast('履歴を復元したよ💕 (' + e.payments.length + '件)');
+        }).catch((err) => console.error('embedded recovery failed', err));
     }
 
     // ------------------------------------------------------------------
@@ -2637,8 +2672,9 @@
         const runRecovery = () => {
             if (recovered) return;
             recovered = true;
-            // Known old sync rooms: auto-restored once for everyone, no action
-            // needed. Dedupe guard means it only ever imports a single time.
+            // Embedded snapshot first: guaranteed, no network dependency.
+            recoverEmbedded();
+            // Then best-effort network restores for any other old rooms.
             LEGACY_ROOMS.forEach(rid => recoverFromRoom(rid, { silent: true }));
             autoRecoverFromUrl();      // also handle any old ?room= link
             migrateLegacyIfNeeded();   // this device's old localStorage
