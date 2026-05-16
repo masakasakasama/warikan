@@ -915,10 +915,14 @@
     const EMOJI_PRESETS = ['💕','🏖️','🐻','🍣','🍕','🍺','✈️','🏠','🚗','🛒','🎂','🎁','🎬','🎮','🏟️','🏔️','🌸','☕','🍱','🍜','🍰','🥂','🎯','📚','💼','🛍️','💰','🏨','🚆','⛺','🌊','🌃'];
 
     const STORAGE_KEYS = {
-        tricounts: 'warikan_v2_tricounts',
-        roomPrefix: 'warikan_v2_room_',
-        legacyMigrated: 'warikan_v2_legacy_migrated',
+        cache: 'warikan_v3_cache',          // cached copy of the shared data (offline safety)
+        me: 'warikan_v3_me',                // device-local: which participant this device is
+        legacyMigrated: 'warikan_v3_legacy_migrated',
     };
+
+    // One fixed shared space. Everyone who opens the page syncs here.
+    // No room IDs, no join step — the URL itself IS the shared notebook.
+    const SHARED_PATH = 'shared/v2';
 
     // ------------------------------------------------------------------
     // State
@@ -927,42 +931,58 @@
         view: 'home',           // 'home' | 'tricount'
         sheet: null,            // sheet name when modal open
         sheetData: null,        // arbitrary data for sheet
-        tricounts: [],          // [{ roomId, name, emoji, description, myId, currency, lastUpdated }]
-        currentRoomId: null,    // which tricount is open
-        currentData: null,      // full tricount snapshot
+        tricounts: [],          // the shared array of full tricount objects
+        currentId: null,        // id of the open tricount
+        currentData: null,      // reference to the open tricount object
+        me: {},                 // device-local map { tricountId: participantId }
         syncStatus: 'idle',     // 'idle' | 'online' | 'syncing' | 'offline' | 'error'
-        subs: {},               // roomId -> Firebase ref (always-on background subscriptions)
-        suppressSync: false,    // flag to prevent loop on remote update
-        pendingJoinRoom: null,  // roomId from URL waiting for participant choice
+        sharedRef: null,        // the single global Firebase ref
+        suppressSync: false,    // prevent write-loop on remote update
     };
 
     // ------------------------------------------------------------------
-    // Local storage helpers
+    // Local storage (cache so data is never lost, even offline)
     // ------------------------------------------------------------------
-    function loadTricounts() {
+    function loadCache() {
         try {
-            const raw = localStorage.getItem(STORAGE_KEYS.tricounts);
-            return raw ? JSON.parse(raw) : [];
+            const raw = localStorage.getItem(STORAGE_KEYS.cache);
+            if (!raw) return [];
+            const v = JSON.parse(raw);
+            if (v && Array.isArray(v.tricounts)) return v.tricounts;
+            if (Array.isArray(v)) return v;
+            return [];
         } catch { return []; }
     }
-    function saveTricounts() {
-        localStorage.setItem(STORAGE_KEYS.tricounts, JSON.stringify(state.tricounts));
-    }
-    function loadRoomSnapshot(roomId) {
+    function saveCache() {
         try {
-            const raw = localStorage.getItem(STORAGE_KEYS.roomPrefix + roomId);
-            return raw ? JSON.parse(raw) : null;
-        } catch { return null; }
+            localStorage.setItem(STORAGE_KEYS.cache, JSON.stringify({
+                tricounts: state.tricounts, updatedAt: Date.now(),
+            }));
+        } catch (e) { console.error('cache save failed', e); }
     }
-    function saveRoomSnapshot(roomId, data) {
+    function loadMe() {
         try {
-            localStorage.setItem(STORAGE_KEYS.roomPrefix + roomId, JSON.stringify(data));
-        } catch (e) {
-            console.error('Failed to cache room', e);
-        }
+            const raw = localStorage.getItem(STORAGE_KEYS.me);
+            return raw ? JSON.parse(raw) : {};
+        } catch { return {}; }
     }
-    function deleteRoomSnapshot(roomId) {
-        localStorage.removeItem(STORAGE_KEYS.roomPrefix + roomId);
+    function saveMe() {
+        try { localStorage.setItem(STORAGE_KEYS.me, JSON.stringify(state.me)); } catch {}
+    }
+
+    // Which participant is "me" on THIS device for a given tricount.
+    function getMyId(tc) {
+        if (!tc) return null;
+        const saved = state.me[tc.id];
+        if (saved && (tc.participants || []).some(p => p.id === saved)) return saved;
+        return (tc.participants && tc.participants[0]) ? tc.participants[0].id : null;
+    }
+    function setMyId(tcId, pid) {
+        state.me[tcId] = pid;
+        saveMe();
+    }
+    function currentTC() {
+        return state.tricounts.find(t => t.id === state.currentId) || null;
     }
 
     // ------------------------------------------------------------------
@@ -970,13 +990,6 @@
     // ------------------------------------------------------------------
     function uid(prefix) {
         return (prefix || '') + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-    }
-
-    function generateRoomId() {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let s = '';
-        for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
-        return s;
     }
 
     function formatMoney(amount, currency) {
@@ -1045,35 +1058,28 @@
     }
 
     // ------------------------------------------------------------------
-    // Firebase sync layer (always-on background subscriptions)
+    // Firebase sync layer  (one shared node, always-on, no rooms)
     // ------------------------------------------------------------------
-    function subscribeRoom(roomId) {
-        if (state.subs[roomId]) return; // already subscribed
-        const ref = db.ref('rooms/' + roomId);
-        state.subs[roomId] = ref;
+    function applyRemote(remote) {
+        const list = remote && Array.isArray(remote.tricounts) ? remote.tricounts : [];
+        state.suppressSync = true;
+        state.tricounts = list;
+        if (state.currentId) {
+            state.currentData = currentTC();
+            if (!state.currentData) { state.currentId = null; state.view = 'home'; }
+        }
+        state.suppressSync = false;
+        saveCache();
+    }
+
+    function subscribeShared() {
+        if (state.sharedRef) return;
+        const ref = db.ref(SHARED_PATH);
+        state.sharedRef = ref;
         if (state.syncStatus === 'idle') state.syncStatus = 'syncing';
         ref.on('value', (snap) => {
             const v = snap.val();
-            if (v) {
-                // Always update cache
-                saveRoomSnapshot(roomId, v);
-                // Update tricount metadata
-                const m = state.tricounts.find(t => t.roomId === roomId);
-                if (m) {
-                    m.name = v.name;
-                    m.emoji = v.emoji;
-                    m.description = v.description;
-                    m.currency = v.currency;
-                    m.lastUpdated = v.updatedAt;
-                    saveTricounts();
-                }
-                // If currently viewing this room, refresh the open data
-                if (state.currentRoomId === roomId) {
-                    state.suppressSync = true;
-                    state.currentData = v;
-                    state.suppressSync = false;
-                }
-            }
+            if (v) applyRemote(v);
             state.syncStatus = 'online';
             render();
         }, (err) => {
@@ -1083,40 +1089,23 @@
         });
     }
 
-    function unsubscribeRoom(roomId) {
-        if (state.subs[roomId]) {
-            state.subs[roomId].off();
-            delete state.subs[roomId];
-        }
+    function resubscribeShared() {
+        if (state.sharedRef) { state.sharedRef.off(); state.sharedRef = null; }
+        subscribeShared();
     }
 
-    function subscribeAllRooms() {
-        state.tricounts.forEach(meta => subscribeRoom(meta.roomId));
-    }
-
-    function pushCurrentRoom() {
+    // Persist the whole shared array to Firebase + local cache.
+    function pushShared() {
         if (state.suppressSync) return;
-        if (!state.currentRoomId || !state.currentData) return;
-        const data = { ...state.currentData, updatedAt: Date.now() };
-        saveRoomSnapshot(state.currentRoomId, data);
-        state.currentData = data;
-        // Update tricount metadata copy
-        const meta = state.tricounts.find(t => t.roomId === state.currentRoomId);
-        if (meta) {
-            meta.name = data.name;
-            meta.emoji = data.emoji;
-            meta.description = data.description;
-            meta.currency = data.currency;
-            meta.lastUpdated = data.updatedAt;
-            saveTricounts();
-        }
+        saveCache();
         state.syncStatus = 'syncing';
-        db.ref('rooms/' + state.currentRoomId).set(data)
+        render();
+        db.ref(SHARED_PATH).set({ tricounts: state.tricounts, updatedAt: Date.now() })
             .then(() => { state.syncStatus = 'online'; render(); })
             .catch((e) => {
                 console.error('Save error', e);
                 state.syncStatus = 'offline';
-                showToast('オフライン保存中（再接続したら同期）');
+                showToast('オフライン保存中（再接続したら自動同期）');
                 render();
             });
     }
@@ -1125,10 +1114,10 @@
     // Tricount data ops
     // ------------------------------------------------------------------
     function createTricount({ name, emoji, description, currency, participants, myId }) {
-        const roomId = generateRoomId();
-        const data = {
+        const tc = {
+            id: uid('tc_'),
             name: name || 'New tricount',
-            emoji: emoji || '💰',
+            emoji: emoji || '\ud83d\udcb0',
             description: description || '',
             currency: currency || 'JPY',
             participants: participants,
@@ -1137,132 +1126,113 @@
             createdAt: Date.now(),
             updatedAt: Date.now(),
         };
-        const meta = {
-            roomId,
-            name: data.name,
-            emoji: data.emoji,
-            description: data.description,
-            currency: data.currency,
-            myId: myId,
-            lastUpdated: data.updatedAt,
-        };
-        state.tricounts.unshift(meta);
-        saveTricounts();
-        saveRoomSnapshot(roomId, data);
-        // Push to firebase
-        db.ref('rooms/' + roomId).set(data).catch(e => {
-            console.error('Initial push failed', e);
-            showToast('オフラインで作成（再接続時に同期）');
-        });
-        // Start always-on subscription
-        subscribeRoom(roomId);
-        return meta;
+        state.tricounts = [tc, ...state.tricounts];
+        if (myId) setMyId(tc.id, myId);
+        pushShared();
+        return tc;
     }
 
-    function openTricount(roomId) {
-        const meta = state.tricounts.find(t => t.roomId === roomId);
-        if (!meta) return;
-        state.currentRoomId = roomId;
-        // Show cached snapshot immediately
-        const cached = loadRoomSnapshot(roomId);
-        state.currentData = cached || {
-            name: meta.name, emoji: meta.emoji, description: meta.description || '',
-            currency: meta.currency || 'JPY',
-            participants: [{ id: meta.myId, name: 'me' }],
-            expenses: [], settlements: [], updatedAt: 0
-        };
+    function openTricount(id) {
+        const tc = state.tricounts.find(t => t.id === id);
+        if (!tc) return;
+        state.currentId = id;
+        state.currentData = tc;
         state.view = 'tricount';
-        // Make sure subscription is active (background subscription should already be on)
-        subscribeRoom(roomId);
         render();
     }
 
     function exitTricount() {
-        // Keep the subscription alive so it keeps syncing in the background.
-        // Do NOT touch the URL — the share link must stay stable.
-        state.currentRoomId = null;
+        state.currentId = null;
         state.currentData = null;
         state.view = 'home';
         render();
     }
 
+    function touch(tc) {
+        if (tc) tc.updatedAt = Date.now();
+    }
+
     function addParticipant(name) {
-        const data = state.currentData;
-        if (!data) return null;
+        const tc = currentTC();
+        if (!tc) return null;
         const p = { id: uid('p_'), name: name.trim() };
-        data.participants = [...(data.participants || []), p];
-        pushCurrentRoom();
+        tc.participants = [...(tc.participants || []), p];
+        touch(tc);
+        pushShared();
         return p;
     }
 
     function removeParticipant(participantId) {
-        const data = state.currentData;
-        if (!data) return;
-        // Don't remove if they have any expense/settlement involvement
-        const inUse = (data.expenses || []).some(e =>
+        const tc = currentTC();
+        if (!tc) return;
+        const inUse = (tc.expenses || []).some(e =>
             e.paidBy === participantId || (e.splits || []).some(s => s.participantId === participantId)
-        ) || (data.settlements || []).some(s => s.from === participantId || s.to === participantId);
+        ) || (tc.settlements || []).some(s => s.from === participantId || s.to === participantId);
         if (inUse) {
             showToast('支払い履歴に使われているので削除できません');
             return;
         }
-        data.participants = (data.participants || []).filter(p => p.id !== participantId);
-        pushCurrentRoom();
+        tc.participants = (tc.participants || []).filter(p => p.id !== participantId);
+        touch(tc);
+        pushShared();
     }
 
     function renameParticipant(participantId, newName) {
-        const data = state.currentData;
-        if (!data) return;
-        const p = (data.participants || []).find(p => p.id === participantId);
-        if (p) { p.name = newName.trim(); pushCurrentRoom(); }
+        const tc = currentTC();
+        if (!tc) return;
+        const p = (tc.participants || []).find(p => p.id === participantId);
+        if (p) { p.name = newName.trim(); touch(tc); pushShared(); }
     }
 
     function addExpense(expense) {
-        const data = state.currentData;
-        if (!data) return;
-        data.expenses = [...(data.expenses || []), expense];
-        pushCurrentRoom();
+        const tc = currentTC();
+        if (!tc) return;
+        tc.expenses = [...(tc.expenses || []), expense];
+        touch(tc);
+        pushShared();
     }
 
     function updateExpense(updated) {
-        const data = state.currentData;
-        if (!data) return;
-        data.expenses = (data.expenses || []).map(e => e.id === updated.id ? updated : e);
-        pushCurrentRoom();
+        const tc = currentTC();
+        if (!tc) return;
+        tc.expenses = (tc.expenses || []).map(e => e.id === updated.id ? updated : e);
+        touch(tc);
+        pushShared();
     }
 
     function deleteExpense(id) {
-        const data = state.currentData;
-        if (!data) return;
-        data.expenses = (data.expenses || []).filter(e => e.id !== id);
-        pushCurrentRoom();
+        const tc = currentTC();
+        if (!tc) return;
+        tc.expenses = (tc.expenses || []).filter(e => e.id !== id);
+        touch(tc);
+        pushShared();
     }
 
     function addSettlement(settlement) {
-        const data = state.currentData;
-        if (!data) return;
-        data.settlements = [...(data.settlements || []), settlement];
-        pushCurrentRoom();
+        const tc = currentTC();
+        if (!tc) return;
+        tc.settlements = [...(tc.settlements || []), settlement];
+        touch(tc);
+        pushShared();
     }
 
     function deleteSettlement(id) {
-        const data = state.currentData;
-        if (!data) return;
-        data.settlements = (data.settlements || []).filter(s => s.id !== id);
-        pushCurrentRoom();
+        const tc = currentTC();
+        if (!tc) return;
+        tc.settlements = (tc.settlements || []).filter(s => s.id !== id);
+        touch(tc);
+        pushShared();
     }
 
-    function deleteTricount(roomId) {
-        unsubscribeRoom(roomId);
-        state.tricounts = state.tricounts.filter(t => t.roomId !== roomId);
-        saveTricounts();
-        deleteRoomSnapshot(roomId);
-        // We do NOT delete the Firebase room - other devices may still use it.
-        if (state.currentRoomId === roomId) {
-            state.currentRoomId = null;
+    function deleteTricount(id) {
+        state.tricounts = state.tricounts.filter(t => t.id !== id);
+        if (state.me[id]) { delete state.me[id]; saveMe(); }
+        if (state.currentId === id) {
+            state.currentId = null;
             state.currentData = null;
             state.view = 'home';
         }
+        pushShared();
     }
 
     // ------------------------------------------------------------------
@@ -1333,149 +1303,67 @@
     }
 
     // ------------------------------------------------------------------
-    // Migration from legacy app
+    // Migration from the original 2-person app (run once, after first sync)
     // ------------------------------------------------------------------
-    function migrateLegacy() {
+    function migrateLegacyIfNeeded() {
         if (localStorage.getItem(STORAGE_KEYS.legacyMigrated)) return;
         const oldP = localStorage.getItem('warikan_payments');
         const oldS = localStorage.getItem('warikan_settlements');
-        if (!oldP && !oldS) {
-            localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1');
-            return;
-        }
-        try {
-            const payments = JSON.parse(oldP || '[]');
-            const settlements = JSON.parse(oldS || '[]');
-            if (!payments.length && !settlements.length) {
-                localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1');
-                return;
-            }
-            const tatsuId = uid('p_');
-            const rebeccaId = uid('p_');
-            const data = {
-                name: 'たつや ♡ レベッカ',
-                emoji: '💕',
-                description: '旧アプリから引き継ぎ',
-                currency: 'JPY',
-                participants: [
-                    { id: tatsuId, name: 'たつや' },
-                    { id: rebeccaId, name: 'レベッカ' },
+        if (!oldP && !oldS) { localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1'); return; }
+        let payments = [], settlements = [];
+        try { payments = JSON.parse(oldP || '[]'); settlements = JSON.parse(oldS || '[]'); } catch {}
+        if (!payments.length && !settlements.length) { localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1'); return; }
+        const tatsuId = uid('p_');
+        const rebeccaId = uid('p_');
+        const tc = {
+            id: uid('tc_'),
+            migratedFrom: 'v1',
+            name: '\u305f\u3064\u3084 \u2661 \u30ec\u30d9\u30c3\u30ab',
+            emoji: '\ud83d\udc95',
+            description: '\u65e7\u30a2\u30d7\u30ea\u304b\u3089\u5f15\u304d\u7d99\u304e',
+            currency: 'JPY',
+            participants: [
+                { id: tatsuId, name: '\u305f\u3064\u3084' },
+                { id: rebeccaId, name: '\u30ec\u30d9\u30c3\u30ab' },
+            ],
+            expenses: payments.map(p => ({
+                id: uid('e_'),
+                type: 'expense',
+                title: p.description || '\u652f\u6255\u3044',
+                amount: Number(p.total) || 0,
+                paidBy: p.payer === 'you' ? tatsuId : rebeccaId,
+                date: p.date || todayISO(),
+                splits: [
+                    { participantId: tatsuId, amount: Number(p.youAmount) || 0 },
+                    { participantId: rebeccaId, amount: Number(p.partnerAmount) || 0 },
                 ],
-                expenses: payments.map(p => ({
-                    id: uid('e_'),
-                    type: 'expense',
-                    title: p.description || '支払い',
-                    amount: Number(p.total) || 0,
-                    paidBy: p.payer === 'you' ? tatsuId : rebeccaId,
-                    date: p.date || todayISO(),
-                    splits: [
-                        { participantId: tatsuId, amount: Number(p.youAmount) || 0 },
-                        { participantId: rebeccaId, amount: Number(p.partnerAmount) || 0 },
-                    ],
-                    createdAt: Number(p.id) || Date.now(),
-                })),
-                settlements: settlements.map(s => ({
-                    id: uid('s_'),
-                    date: s.date || todayISO(),
-                    amount: Number(s.amount) || 0,
-                    from: s.payer === 'you' ? tatsuId : rebeccaId,
-                    to: s.receiver === 'you' ? tatsuId : rebeccaId,
-                })),
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-            };
-            const roomId = generateRoomId();
-            const meta = {
-                roomId,
-                name: data.name,
-                emoji: data.emoji,
-                description: data.description,
-                currency: data.currency,
-                myId: tatsuId,
-                lastUpdated: data.updatedAt,
-            };
-            state.tricounts.push(meta);
-            saveTricounts();
-            saveRoomSnapshot(roomId, data);
-            db.ref('rooms/' + roomId).set(data).catch(() => {});
-            localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1');
-            showToast('旧データを引き継いだよ');
-        } catch (e) {
-            console.error('Legacy migration failed', e);
-            localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1');
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Join via shared link
-    // ------------------------------------------------------------------
-    async function joinByRoomId(roomId) {
-        if (!roomId) return;
-        // If already in our list, just open it
-        const existing = state.tricounts.find(t => t.roomId === roomId);
-        if (existing) {
-            openTricount(roomId);
-            return;
-        }
-        // Fetch room from Firebase
-        try {
-            state.syncStatus = 'syncing';
-            render();
-            const snap = await db.ref('rooms/' + roomId).get();
-            if (!snap.exists()) {
-                showToast('共有リンクのデータが見つからないよ');
-                state.syncStatus = 'idle';
-                render();
-                return;
-            }
-            const remote = snap.val();
-            saveRoomSnapshot(roomId, remote);
-            state.pendingJoinRoom = { roomId, data: remote };
-            state.sheet = 'joinPick';
-            render();
-        } catch (e) {
-            console.error('Join fetch failed', e);
-            showToast('リンクから読み込めなかったよ');
-            state.syncStatus = 'offline';
-            render();
-        }
-    }
-
-    function tryJoinFromUrl() {
-        const params = new URLSearchParams(window.location.search);
-        const roomId = params.get('room');
-        if (roomId) joinByRoomId(roomId);
-    }
-
-    function completeJoin(participantId) {
-        const join = state.pendingJoinRoom;
-        if (!join) return;
-        const meta = {
-            roomId: join.roomId,
-            name: join.data.name,
-            emoji: join.data.emoji,
-            description: join.data.description,
-            currency: join.data.currency,
-            myId: participantId,
-            lastUpdated: join.data.updatedAt || Date.now(),
+                createdAt: Number(p.id) || Date.now(),
+            })),
+            settlements: settlements.map(s => ({
+                id: uid('s_'),
+                date: s.date || todayISO(),
+                amount: Number(s.amount) || 0,
+                from: s.payer === 'you' ? tatsuId : rebeccaId,
+                to: s.receiver === 'you' ? tatsuId : rebeccaId,
+            })),
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
         };
-        state.tricounts.unshift(meta);
-        saveTricounts();
-        // Start always-on subscription for this room
-        subscribeRoom(join.roomId);
-        state.pendingJoinRoom = null;
-        state.sheet = null;
-        openTricount(join.roomId);
-    }
-
-    function joinAsNewParticipant(name) {
-        const join = state.pendingJoinRoom;
-        if (!join) return;
-        const newP = { id: uid('p_'), name: name.trim() };
-        join.data.participants = [...(join.data.participants || []), newP];
-        // Push to firebase first so partner sees it
-        db.ref('rooms/' + join.roomId).set({ ...join.data, updatedAt: Date.now() }).catch(() => {});
-        completeJoin(newP.id);
+        // Transaction so two devices migrating at once cannot duplicate it.
+        db.ref(SHARED_PATH).transaction((curr) => {
+            curr = curr || { tricounts: [] };
+            curr.tricounts = curr.tricounts || [];
+            if (curr.tricounts.some(t => t && t.migratedFrom === 'v1')) return curr;
+            curr.tricounts = [tc, ...curr.tricounts];
+            curr.updatedAt = Date.now();
+            return curr;
+        }).then(() => {
+            setMyId(tc.id, tatsuId);
+            localStorage.setItem(STORAGE_KEYS.legacyMigrated, '1');
+            showToast('\u65e7\u30c7\u30fc\u30bf\u3092\u5f15\u304d\u7d99\u3044\u3060\u3088');
+        }).catch((e) => {
+            console.error('Legacy migration failed', e);
+        });
     }
 
     // ------------------------------------------------------------------
@@ -1503,14 +1391,13 @@
     function renderHome() {
         const items = state.tricounts.length > 0
             ? state.tricounts.map(t => {
-                const cache = loadRoomSnapshot(t.roomId);
                 let preview = t.description || ' ';
                 let previewColor = '';
-                if (cache) {
-                    const cur = cache.currency || t.currency || 'JPY';
-                    const balances = computeBalances(cache);
-                    const bal = balances[t.myId] || 0;
-                    const hasItems = (cache.expenses || []).length > 0 || (cache.settlements || []).length > 0;
+                {
+                    const cur = t.currency || 'JPY';
+                    const balances = computeBalances(t);
+                    const bal = balances[getMyId(t)] || 0;
+                    const hasItems = (t.expenses || []).length > 0 || (t.settlements || []).length > 0;
                     if (!hasItems) {
                         preview = t.description || 'まだ支払いなし';
                     } else if (Math.abs(bal) < 0.01) {
@@ -1525,7 +1412,7 @@
                     }
                 }
                 return `
-                <div class="tricount-card pressable" data-action="open-tricount" data-room="${escapeAttr(t.roomId)}">
+                <div class="tricount-card pressable" data-action="open-tricount" data-id="${escapeAttr(t.id)}">
                     <div class="tricount-emoji">${escapeHtml(t.emoji || '💰')}</div>
                     <div class="tricount-info">
                         <div class="tricount-name">${escapeHtml(t.name)}</div>
@@ -1568,9 +1455,9 @@
                         <div class="bottom-nav-icon">⇆</div>
                         <div class="bottom-nav-label">tricounts</div>
                     </div>
-                    <div class="bottom-nav-item" data-action="show-join">
-                        <div class="bottom-nav-icon">🔗</div>
-                        <div class="bottom-nav-label">Join</div>
+                    <div class="bottom-nav-item" data-action="open-share-home">
+                        <div class="bottom-nav-icon">↗</div>
+                        <div class="bottom-nav-label">Share</div>
                     </div>
                     <div class="bottom-nav-item" data-action="show-help">
                         <div class="bottom-nav-icon">？</div>
@@ -1584,8 +1471,7 @@
     // ---- Tricount detail ----
     function renderTricount() {
         const data = state.currentData;
-        const meta = state.tricounts.find(t => t.roomId === state.currentRoomId);
-        const myId = meta ? meta.myId : null;
+        const myId = getMyId(data);
         const { balances, transfers } = settlementPlan(data);
 
         const myBalance = myId ? (balances[myId] || 0) : 0;
@@ -1746,9 +1632,7 @@
             case 'editSettle': inner = sheetEditSettle(state.sheetData.id); break;
             case 'share': inner = sheetShare(); break;
             case 'settings': inner = sheetSettings(); break;
-            case 'joinPick': inner = sheetJoinPick(); break;
             case 'help': inner = sheetHelp(); break;
-            case 'join': inner = sheetJoinManual(); break;
             case 'addSettle': inner = sheetAddSettle(); break;
         }
         return `
@@ -1835,8 +1719,7 @@
 
     function sheetEditExpense(existingId) {
         const data = state.currentData;
-        const meta = state.tricounts.find(t => t.roomId === state.currentRoomId);
-        const myId = meta ? meta.myId : (data.participants[0] && data.participants[0].id);
+        const myId = getMyId(data);
 
         let draft = state.sheetData;
         if (existingId && (!draft || draft.id !== existingId)) {
@@ -2013,8 +1896,7 @@
         const draft = state.sheetData = state.sheetData || (() => {
             const plan = settlementPlan(data);
             const t = plan.transfers[0];
-            const meta = state.tricounts.find(x => x.roomId === state.currentRoomId);
-            const myId = meta ? meta.myId : null;
+            const myId = getMyId(data);
             return {
                 from: t ? t.from : (myId || data.participants[0].id),
                 to: t ? t.to : (data.participants.find(p => p.id !== (myId || data.participants[0].id)) || data.participants[0]).id,
@@ -2054,14 +1936,10 @@
     }
 
     function sheetShare() {
-        const url = shareUrl(state.currentRoomId);
+        const url = appUrl();
         return `
-            <div class="sheet-title">共有して同期</div>
-            <div class="helper" style="margin-bottom:14px;">このリンクを彼女に送れば、別のデバイスからでも同じトリカウントを開いて自動同期できるよ💕</div>
-            <div style="text-align:center; margin-bottom:14px;">
-                <div class="helper" style="margin-bottom:6px;">同期ID</div>
-                <span class="room-pill">${escapeHtml(state.currentRoomId)}</span>
-            </div>
+            <div class="sheet-title">彼女と共有</div>
+            <div class="helper" style="margin-bottom:14px;">このリンクを彼女に送るだけ💕 開いた瞬間から、あなたと同じデータが全デバイスで自動同期されるよ。IDの入力も「参加」操作も一切いりません。</div>
             <div class="share-link-box">${escapeHtml(url)}</div>
             <button class="btn-primary" data-action="copy-link" data-link="${escapeAttr(url)}">リンクをコピー</button>
             <button class="btn-secondary" style="margin-top:10px;" data-action="share-system" data-link="${escapeAttr(url)}">他のアプリで共有</button>
@@ -2070,13 +1948,12 @@
 
     function sheetSettings() {
         const data = state.currentData;
-        const meta = state.tricounts.find(t => t.roomId === state.currentRoomId);
         const draft = state.sheetData = state.sheetData || {
             name: data.name,
             emoji: data.emoji,
             description: data.description,
             currency: data.currency,
-            myId: meta ? meta.myId : null,
+            myId: getMyId(data),
         };
         const emojiBtns = EMOJI_PRESETS.map(em => `
             <button data-action="settings-emoji" data-emoji="${escapeAttr(em)}" class="${em === draft.emoji ? 'selected' : ''}">${em}</button>
@@ -2126,38 +2003,7 @@
             </div>
             <button class="btn-primary" data-action="confirm-settings">保存</button>
             <button class="btn-danger" style="margin-top:10px;" data-action="delete-tricount">このトリカウントを削除</button>
-            <div class="helper" style="margin-top:6px;">※ 削除はこの端末からだけ。彼女の端末にはまだ残ります。</div>
-        `;
-    }
-
-    function sheetJoinPick() {
-        const join = state.pendingJoinRoom;
-        if (!join) return '<div class="sheet-title">読み込み中…</div>';
-        const partsHtml = (join.data.participants || []).map(p => `
-            <button class="balance-row pressable" style="width:100%; border:none; cursor:pointer; text-align:left;" data-action="pick-join" data-id="${escapeAttr(p.id)}">
-                <span class="name">${escapeHtml(p.name)}</span>
-                <span class="amt">›</span>
-            </button>
-        `).join('');
-        return `
-            <div class="sheet-title">${escapeHtml(join.data.emoji || '💰')} ${escapeHtml(join.data.name)} に参加</div>
-            <div class="helper" style="margin-bottom:14px;">あなたはどの参加者ですか？</div>
-            <div class="balance-list" style="margin-bottom:16px;">${partsHtml}</div>
-            <div class="helper" style="margin-bottom:8px;">該当する人がいない場合は新しく追加：</div>
-            <div class="chip-add-input">
-                <input data-field="newJoinName" placeholder="あなたの名前" maxlength="20">
-                <button data-action="join-as-new">追加して参加</button>
-            </div>
-            <button class="btn-secondary" style="margin-top:14px;" data-action="cancel-join">キャンセル</button>
-        `;
-    }
-
-    function sheetJoinManual() {
-        return `
-            <div class="sheet-title">同期IDで参加</div>
-            <div class="helper" style="margin-bottom:14px;">彼女が共有してくれた同期ID（8文字）を入力してね。</div>
-            <input data-field="joinCode" placeholder="例: A1B2C3D4" maxlength="8" style="text-transform:uppercase; letter-spacing:2px; font-family:monospace; font-size:18px; text-align:center;">
-            <button class="btn-primary" style="margin-top:14px;" data-action="confirm-join">参加する</button>
+            <div class="helper" style="margin-top:6px;">※ 全デバイス共通の削除です。元に戻せません。</div>
         `;
     }
 
@@ -2172,7 +2018,7 @@
                 <p style="margin-bottom:12px;">「支出」は誰かが立て替えた金額。均等にも個別指定にも分けられる。「収入」は逆。「送金」は人から人へのお金の受け渡し（精算）。</p>
 
                 <p style="color:var(--text); font-weight:600;">🔗 自動同期</p>
-                <p style="margin-bottom:12px;">右上のシェアからリンクを送ると、別の端末でもまったく同じデータをリアルタイムで共有できる。Firebase経由で常時バックアップされ、端末側のローカルキャッシュにも自動保存されるからデータは消えない。</p>
+                <p style="margin-bottom:12px;">シェアからリンクを送るだけ。受け取った人が開いた瞬間から、同じデータが全デバイスで自動同期される。「同期ID」や「参加」操作は一切不要。Firebase経由で常時バックアップされ、端末のローカルキャッシュにも保存されるからデータは消えない。</p>
 
                 <p style="color:var(--text); font-weight:600;">⚖️ 残高</p>
                 <p>各メンバーの残高（プラス=もらえる、マイナス=払う）と、最少回数の精算プランを自動計算するよ。</p>
@@ -2181,9 +2027,10 @@
         `;
     }
 
-    function shareUrl(roomId) {
+    function appUrl() {
         const url = new URL(window.location.href);
-        url.search = '?room=' + roomId;
+        url.search = '';
+        url.hash = '';
         return url.toString();
     }
 
@@ -2318,7 +2165,13 @@
     function handleAction(action, el, ev) {
         switch (action) {
             case 'open-tricount': {
-                openTricount(el.dataset.room);
+                openTricount(el.dataset.id);
+                break;
+            }
+            case 'open-share-home': {
+                state.sheet = 'share';
+                state.sheetData = null;
+                render();
                 break;
             }
             case 'back-home': {
@@ -2534,60 +2387,28 @@
             }
             case 'confirm-settings': {
                 const draft = state.sheetData;
-                const data = state.currentData;
+                const data = currentTC();
+                if (!data) return;
                 if (!draft.name.trim()) return showToast('名前を入れてね');
                 data.name = draft.name.trim();
                 data.emoji = draft.emoji;
                 data.description = (draft.description || '').trim();
                 data.currency = draft.currency;
-                pushCurrentRoom();
-                // Update myId on local meta
-                const meta = state.tricounts.find(t => t.roomId === state.currentRoomId);
-                if (meta && draft.myId) { meta.myId = draft.myId; saveTricounts(); }
+                if (draft.myId) setMyId(data.id, draft.myId);
+                touch(data);
+                pushShared();
                 state.sheet = null;
                 state.sheetData = null;
                 render();
                 break;
             }
             case 'delete-tricount': {
-                if (!confirm('このトリカウントをこの端末から削除しますか？\n他の端末には残ります。')) return;
-                const rid = state.currentRoomId;
+                if (!confirm('このトリカウントを削除しますか？\n全デバイス共通の削除です。')) return;
+                const rid = state.currentId;
                 state.sheet = null;
                 state.sheetData = null;
                 deleteTricount(rid);
                 render();
-                break;
-            }
-            case 'pick-join': {
-                completeJoin(el.dataset.id);
-                break;
-            }
-            case 'join-as-new': {
-                const input = app.querySelector('[data-field="newJoinName"]');
-                const name = (input.value || '').trim();
-                if (!name) return showToast('名前を入れてね');
-                joinAsNewParticipant(name);
-                break;
-            }
-            case 'cancel-join': {
-                state.pendingJoinRoom = null;
-                state.sheet = null;
-                render();
-                break;
-            }
-            case 'show-join': {
-                state.sheet = 'join';
-                state.sheetData = null;
-                render();
-                break;
-            }
-            case 'confirm-join': {
-                const input = app.querySelector('[data-field="joinCode"]');
-                const code = (input.value || '').trim().toUpperCase();
-                if (!code) return showToast('IDを入れてね');
-                state.sheet = null;
-                state.sheetData = null;
-                joinByRoomId(code);
                 break;
             }
             case 'show-help': {
@@ -2655,23 +2476,31 @@
     // Boot
     // ------------------------------------------------------------------
     function boot() {
-        state.tricounts = loadTricounts();
-        migrateLegacy();
-        // Always-on: subscribe to every tricount in the background
-        subscribeAllRooms();
+        // Start from local cache so data shows instantly and survives offline.
+        state.tricounts = loadCache();
+        state.me = loadMe();
         render();
-        tryJoinFromUrl();
 
-        // Online/offline detection
+        // One shared node, always-on. Everyone who opens the page syncs here.
+        subscribeShared();
+
+        // Migrate the original 2-person app once, after the first sync settles.
+        let migrated = false;
+        const ref = db.ref(SHARED_PATH);
+        ref.once('value').then(() => {
+            if (migrated) return;
+            migrated = true;
+            migrateLegacyIfNeeded();
+        }).catch(() => {
+            if (migrated) return;
+            migrated = true;
+            migrateLegacyIfNeeded();
+        });
+
+        // Reconnect handling
         window.addEventListener('online', () => {
             state.syncStatus = 'syncing';
-            // Re-subscribe everything to force a refresh
-            Object.keys(state.subs).forEach(rid => {
-                state.subs[rid].off();
-                delete state.subs[rid];
-            });
-            subscribeAllRooms();
-            if (state.currentRoomId && state.currentData) pushCurrentRoom();
+            resubscribeShared();
             render();
         });
         window.addEventListener('offline', () => {
