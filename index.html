@@ -929,11 +929,24 @@
 
     // Authoritative snapshot of the couple's real sync room (rooms/NJ81Z5),
     // embedded so recovery never depends on a network read succeeding.
+    const EMBEDDED_VERSION = 3;
     const EMBEDDED_LEGACY = {
         roomId: 'NJ81Z5',
+        version: EMBEDDED_VERSION,
         payments: [
+            // --- rooms/NJ81Z5 original sync data ---
             /* removed */,
             /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            /* removed */,
+            // --- 3〜4月の追加分（内訳不明のため 50/50）---
             /* removed */,
             /* removed */,
             /* removed */,
@@ -944,7 +957,12 @@
             /* removed */,
             /* removed */,
         ],
-        settlements: [],
+        settlements: [
+            // レベッカ → たつや 返金
+            /* removed */,
+            // 全部精算（残高ゼロ）にするための最終調整
+            /* removed */,
+        ],
     };
 
     // ------------------------------------------------------------------
@@ -1482,14 +1500,30 @@
     // read involved, so this cannot fail; dedupe-guarded to run only once.
     function recoverEmbedded() {
         const e = EMBEDDED_LEGACY;
-        if (state.tricounts.some(t => t && t.recoveredFrom === e.roomId)) return;
+        const existing = state.tricounts.find(t => t && t.recoveredFrom === e.roomId);
+        if (existing && existing.embeddedVersion === e.version) return;
         const tc = buildLegacyTricount(e.payments, e.settlements, {
             recoveredFrom: e.roomId,
             name: 'たつや ♡ レベッカ',
             description: '同期データを復元 (' + e.roomId + ')',
         });
-        addTricountGuarded(tc, 'recoveredFrom', e.roomId).then(() => {
-            showToast('履歴を復元したよ💕 (' + e.payments.length + '件)');
+        tc.embeddedVersion = e.version;
+        // Replace any older recovered copy so the corrected, settled data wins.
+        db.ref(SHARED_PATH).transaction((curr) => {
+            curr = curr || { tricounts: [] };
+            curr.tricounts = curr.tricounts || [];
+            const cur = curr.tricounts.find(t => t && t.recoveredFrom === e.roomId);
+            if (cur && cur.embeddedVersion === e.version) return curr;
+            const clean = { ...tc }; delete clean._myId;
+            curr.tricounts = curr.tricounts.filter(t => !(t && t.recoveredFrom === e.roomId));
+            curr.tricounts = [clean, ...curr.tricounts];
+            curr.updatedAt = Date.now();
+            return curr;
+        }).then((res) => {
+            if (res && res.committed) {
+                if (tc._myId) setMyId(tc.id, tc._myId);
+                showToast('履歴を復元・精算済みにしたよ💕');
+            }
         }).catch((err) => console.error('embedded recovery failed', err));
     }
 
