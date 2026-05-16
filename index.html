@@ -924,6 +924,9 @@
     // No room IDs, no join step — the URL itself IS the shared notebook.
     const SHARED_PATH = 'shared/v2';
 
+    // Old per-room sync data to auto-restore once into the shared node.
+    const LEGACY_ROOMS = ['NJ81Z5'];
+
     // ------------------------------------------------------------------
     // State
     // ------------------------------------------------------------------
@@ -2618,7 +2621,10 @@
         const runRecovery = () => {
             if (recovered) return;
             recovered = true;
-            autoRecoverFromUrl();      // old ?room= link → pull rooms/<id> back
+            // Known old sync rooms: auto-restored once for everyone, no action
+            // needed. Dedupe guard means it only ever imports a single time.
+            LEGACY_ROOMS.forEach(rid => recoverFromRoom(rid, { silent: true }));
+            autoRecoverFromUrl();      // also handle any old ?room= link
             migrateLegacyIfNeeded();   // this device's old localStorage
         };
         ref.once('value').then(runRecovery).catch(runRecovery);
