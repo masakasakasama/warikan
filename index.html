@@ -1406,15 +1406,25 @@
         }
         try {
             if (!opts.silent) { state.syncStatus = 'syncing'; render(); }
-            const snap = await db.ref('rooms/' + roomId).get();
-            if (!snap.exists()) {
+            const ref = db.ref('rooms/' + roomId);
+            // Try get(); some setups reject get() but allow once('value').
+            let snap;
+            try {
+                snap = await ref.get();
+            } catch (e1) {
+                console.warn('get() failed, retrying once(value)', e1);
+                snap = await ref.once('value');
+            }
+            if (!snap || !snap.exists()) {
                 if (!opts.silent) showToast('rooms/' + roomId + ' \u306b\u30c7\u30fc\u30bf\u304c\u898b\u3064\u304b\u3089\u306a\u3044');
                 state.syncStatus = 'online'; render();
                 return false;
             }
             const v = snap.val() || {};
-            const payments = v.payments || [];
-            const settlements = v.settlements || [];
+            const payments = Array.isArray(v.payments) ? v.payments
+                : (v.payments ? Object.values(v.payments) : []);
+            const settlements = Array.isArray(v.settlements) ? v.settlements
+                : (v.settlements ? Object.values(v.settlements) : []);
             if (!payments.length && !settlements.length) {
                 if (!opts.silent) showToast('\u305d\u306e\u90e8\u5c4b\u306f\u7a7a\u3060\u3063\u305f\uff08' + roomId + '\uff09');
                 state.syncStatus = 'online'; render();
@@ -1430,7 +1440,13 @@
             return true;
         } catch (e) {
             console.error('recoverFromRoom failed', e);
-            showToast('\u5fa9\u5143\u306b\u5931\u6557\u3057\u305f\u2026\u30cd\u30c3\u30c8\u3092\u78ba\u8a8d\u3057\u3066\u3082\u3046\u4e00\u5ea6');
+            const code = (e && (e.code || e.message)) ? String(e.code || e.message) : 'unknown';
+            const denied = /permission|denied/i.test(code);
+            if (!opts.silent) {
+                showToast(denied
+                    ? 'Firebase\u306e\u6a29\u9650\u62d2\u5426(' + code + ')\u3002DB\u30eb\u30fc\u30eb\u306e\u78ba\u8a8d\u304c\u5fc5\u8981'
+                    : '\u5fa9\u5143\u5931\u6557: ' + code, 6000);
+            }
             state.syncStatus = 'offline'; render();
             return false;
         }
