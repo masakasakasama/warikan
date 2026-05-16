@@ -483,6 +483,31 @@
             padding: 6px 4px;
         }
 
+        .split-presets {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .split-preset-btn {
+            flex: 1;
+            padding: 10px 6px;
+            border-radius: 999px;
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: all 0.12s;
+        }
+        .split-preset-btn.active {
+            background: linear-gradient(100deg, #ec4899, #fb7185);
+            color: #fff;
+            border-color: transparent;
+        }
+
         .split-list {
             background: var(--bg-elev);
             border-radius: 14px;
@@ -1930,6 +1955,22 @@
                     </div>
                 `;
             }).join('');
+            let activePreset = '';
+            if (draft.splitMode === 'equal') {
+                activePreset = 'equal';
+            } else {
+                const inc = draft.splits.filter(s => s.included);
+                const full = draft.splits.find(s => s.included && Number(s.amount) === Number(draft.amount) && draft.amount > 0);
+                const restZero = inc.every(s => s === full || Number(s.amount) === 0);
+                if (full && restZero) activePreset = 'all:' + full.participantId;
+            }
+            const presetBtns = `
+                <div class="split-presets">
+                    <button class="split-preset-btn ${activePreset === 'equal' ? 'active' : ''}" data-action="split-preset" data-preset="equal">折半</button>
+                    ${data.participants.map(p => `
+                        <button class="split-preset-btn ${activePreset === 'all:' + p.id ? 'active' : ''}" data-action="split-preset" data-preset="all" data-id="${escapeAttr(p.id)}">全額 ${escapeHtml(p.name)}</button>
+                    `).join('')}
+                </div>`;
             const sumIncluded = draft.splits.filter(s => s.included).reduce((acc, s) => acc + Number(s.amount || 0), 0);
             const diff = roundForCurrency(draft.amount - sumIncluded, data.currency);
             const warn = draft.splitMode === 'custom' && Math.abs(diff) > 0.01
@@ -1945,6 +1986,7 @@
                             ${draft.splitMode === 'equal' ? '均等' : '個別指定'} ⌃⌄
                         </button>
                     </div>
+                    ${presetBtns}
                     <div class="split-list">${splitRows}</div>
                     ${warn}
                 </div>
@@ -2451,6 +2493,27 @@
             }
             case 'toggle-split-mode': {
                 state.sheetData.splitMode = state.sheetData.splitMode === 'equal' ? 'custom' : 'equal';
+                render();
+                break;
+            }
+            case 'split-preset': {
+                const draft = state.sheetData;
+                const data = state.currentData;
+                const preset = el.dataset.preset;
+                if (preset === 'equal') {
+                    draft.splitMode = 'equal';
+                    draft.splits.forEach(s => { s.included = true; });
+                    const inc = draft.splits.filter(s => s.included);
+                    const eq = distributeEqually(draft.amount, inc.length, data.currency);
+                    inc.forEach((s, i) => { s.amount = eq[i] || 0; });
+                } else if (preset === 'all') {
+                    const pid = el.dataset.id;
+                    draft.splitMode = 'custom';
+                    draft.splits.forEach(s => {
+                        s.included = true;
+                        s.amount = s.participantId === pid ? (Number(draft.amount) || 0) : 0;
+                    });
+                }
                 render();
                 break;
             }
