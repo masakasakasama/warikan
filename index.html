@@ -1268,8 +1268,12 @@
                 const tc = obj && obj.expenses ? obj : (obj && obj.tricounts && obj.tricounts[0]);
                 if (!tc || !tc.expenses) return showToast('対応していないファイルだよ');
                 if (!confirm('現在のデータをこのファイルの内容で置き換えます。よろしいですか？')) return;
-                tc.id = (currentTC() && currentTC().id) || tc.id || uid('tc_');
-                tc.recoveredFrom = (currentTC() && currentTC().recoveredFrom) || tc.recoveredFrom || 'NJ81Z5';
+                const cur = currentTC();
+                tc.id = (cur && cur.id) || tc.id || uid('tc_');
+                tc.recoveredFrom = (cur && cur.recoveredFrom) || tc.recoveredFrom || 'NJ81Z5';
+                // Mark as up-to-date so the embedded recovery never overwrites
+                // an intentionally imported dataset on the next launch.
+                tc.embeddedVersion = EMBEDDED_VERSION;
                 tc.updatedAt = Date.now();
                 state.tricounts = [tc, ...state.tricounts.filter(t => t.id !== tc.id)];
                 pushShared();
@@ -2102,8 +2106,8 @@
         switch (state.sheet) {
             case 'newTricount': inner = sheetNewTricount(); break;
             case 'addExpense': inner = sheetEditExpense(null); break;
-            case 'editExpense': inner = sheetEditExpense(state.sheetData.id); break;
-            case 'editSettle': inner = sheetEditSettle(state.sheetData.id); break;
+            case 'editExpense': inner = sheetEditExpense(state.sheetData && state.sheetData.id); break;
+            case 'editSettle': inner = sheetEditSettle(state.sheetData && state.sheetData.id); break;
             case 'share': inner = sheetShare(); break;
             case 'settings': inner = sheetSettings(); break;
             case 'help': inner = sheetHelp(); break;
@@ -2198,7 +2202,7 @@
         const myId = getMyId(data);
 
         let draft = state.sheetData;
-        if (existingId && (!draft || draft.id !== existingId)) {
+        if (existingId && (!draft || draft.id !== existingId || !draft.splits)) {
             const existing = (data.expenses || []).find(e => e.id === existingId);
             if (existing) {
                 // Deep clone with split mode detection
@@ -2238,6 +2242,16 @@
                 createdAt: Date.now(),
             };
             state.sheetData = draft;
+        }
+
+        // Safety: if the target expense vanished (or draft never built),
+        // show a closable message instead of crashing on draft.splits below.
+        if (!draft || !Array.isArray(draft.splits)) {
+            return `
+                <div class="sheet-title">支払いが見つかりません</div>
+                <div class="helper" style="margin-bottom:16px;">この支払いは削除されたか、まだ読み込めていないよ。</div>
+                <button class="btn-primary" data-action="close-sheet">閉じる</button>
+            `;
         }
 
         // Recalc equal split amounts
@@ -3020,8 +3034,7 @@
                             splitMode: draft.splitMode,
                             splits: splits.map(s => ({ participantId: s.participantId, amount: s.amount })),
                         });
-                        touch(tc);
-                        pushShared();
+                        // Persisted together with the expense write below.
                     }
                 }
                 if (draft.id) updateExpense(expense); else addExpense(expense);
