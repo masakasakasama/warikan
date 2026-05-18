@@ -6,6 +6,10 @@
     <meta name="theme-color" content="#fff5f8">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="warikan">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
     <title>warikan</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
@@ -508,6 +512,125 @@
             border-color: transparent;
         }
 
+        /* Category picker */
+        .cat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .cat-chip {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 10px 4px;
+            border-radius: 14px;
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .cat-chip .cat-emoji { font-size: 20px; line-height: 1; }
+        .cat-chip.active {
+            background: var(--primary-soft);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Analysis card */
+        .analysis-card {
+            background: var(--bg-elev);
+            border-radius: 18px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 16px rgba(236, 72, 153, 0.08);
+            border: 1px solid rgba(246, 211, 224, 0.6);
+        }
+        .month-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .month-arrow {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            background: var(--bg-elev-2);
+            color: var(--primary);
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .month-label { font-size: 16px; font-weight: 700; }
+        .analysis-body {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .donut-wrap { flex-shrink: 0; }
+        .legend { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+        .legend-row { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+        .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .legend-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .legend-val { font-weight: 700; }
+        .legend-pct { color: var(--text-tertiary); font-weight: 500; }
+        .delta {
+            margin-top: 12px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .delta.up { color: var(--danger); }
+        .delta.down { color: var(--success); }
+
+        /* Recurring templates */
+        .tpl-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+        .tpl-chip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 13px 16px;
+            border-radius: 14px;
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .tpl-chip .tpl-amt { color: var(--primary); font-weight: 700; }
+        .tpl-manage { display: flex; flex-direction: column; gap: 10px; }
+        .tpl-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+        }
+        .tpl-row-main { flex: 1; min-width: 0; }
+        .tpl-row-title { font-size: 14px; font-weight: 600; }
+        .tpl-add-btn {
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: linear-gradient(100deg, #ec4899, #fb7185);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .tpl-del-btn {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--bg-elev-2);
+            color: var(--text-secondary);
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .backup-btns { display: flex; gap: 8px; }
+        .backup-btns .split-preset-btn { flex: 1; }
+
         .split-list {
             background: var(--bg-elev);
             border-radius: 14px;
@@ -913,6 +1036,7 @@
 </head>
 <body>
     <div id="app"></div>
+    <input type="file" id="import-file" accept="application/json,.json" style="display:none">
     <div class="toast" id="toast"></div>
 
     <script>
@@ -948,10 +1072,59 @@
 
     const EMOJI_PRESETS = ['💕','🏖️','🐻','🍣','🍕','🍺','✈️','🏠','🚗','🛒','🎂','🎁','🎬','🎮','🏟️','🏔️','🌸','☕','🍱','🍜','🍰','🥂','🎯','📚','💼','🛍️','💰','🏨','🚆','⛺','🌊','🌃'];
 
+    // Spending categories (key, label, emoji, chart colour).
+    const CATEGORIES = [
+        { key: 'food',     label: '食費',   emoji: '🍚', color: '#f97316' },
+        { key: 'cafe',     label: 'カフェ', emoji: '☕', color: '#d97706' },
+        { key: 'shopping', label: '買い物', emoji: '🛍️', color: '#ec4899' },
+        { key: 'utility',  label: '光熱費', emoji: '💡', color: '#eab308' },
+        { key: 'rent',     label: '家賃',   emoji: '🏠', color: '#8b5cf6' },
+        { key: 'furniture',label: '家具',   emoji: '🛋️', color: '#a855f7' },
+        { key: 'transit',  label: '交通',   emoji: '🚃', color: '#14b8a6' },
+        { key: 'fun',      label: '娯楽',   emoji: '🎮', color: '#06b6d4' },
+        { key: 'subsc',    label: 'サブスク', emoji: '📺', color: '#3b82f6' },
+        { key: 'insurance',label: '保険',   emoji: '🛡️', color: '#64748b' },
+        { key: 'medical',  label: '医療',   emoji: '🏥', color: '#22c55e' },
+        { key: 'other',    label: 'その他', emoji: '📦', color: '#9ca3af' },
+    ];
+    const CAT_BY_KEY = Object.fromEntries(CATEGORIES.map(c => [c.key, c]));
+
+    // Best-effort auto-categorise (used for legacy items with no category).
+    function inferCategory(title) {
+        const t = (title || '').toLowerCase();
+        const has = (...ws) => ws.some(w => t.includes(w));
+        if (has('電気', 'ガス', '水道', '光熱')) return 'utility';
+        if (has('netflix', 'spotify', 'youtube', 'サブスク', 'amazon prime', 'prime')) return 'subsc';
+        if (has('家賃', 'rent')) return 'rent';
+        if (has('引っ越し', '引越', '家具', 'テレビ', 'カーテン', 'ikea', 'ソファ', '机', '台')) return 'furniture';
+        if (has('保険')) return 'insurance';
+        if (has('pasmo', 'suica', '電車', 'バス', 'タクシー', '交通', '新幹線')) return 'transit';
+        if (has('スーパー', 'マイバスケット', 'amazon', '買い物', 'コンビニ')) return 'shopping';
+        if (has('カフェ', 'スタバ', 'コーヒー', 'cafe', 'starbucks')) return 'cafe';
+        if (has('食', 'ランチ', 'ディナー', 'レストラン', '居酒屋', 'ご飯', 'ごはん')) return 'food';
+        if (has('映画', 'ゲーム', 'デート', '旅行', 'カラオケ')) return 'fun';
+        if (has('病院', '薬', '医療', 'クリニック', 'メガネ', '眼鏡')) return 'medical';
+        return 'other';
+    }
+    function categoryOf(e) {
+        return (e && e.category && CAT_BY_KEY[e.category]) ? e.category : inferCategory(e && e.title);
+    }
+    function monthKey(d) { return (d || '').slice(0, 7); }
+    function shiftMonth(ym, delta) {
+        const [y, m] = ym.split('-').map(Number);
+        const dt = new Date(y, (m - 1) + delta, 1);
+        return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
+    }
+    function formatMonthLabel(ym) {
+        const [y, m] = ym.split('-').map(Number);
+        return y + '年' + m + '月';
+    }
+
     const STORAGE_KEYS = {
         cache: 'warikan_v3_cache',          // cached copy of the shared data (offline safety)
         me: 'warikan_v3_me',                // device-local: which participant this device is
         legacyMigrated: 'warikan_v3_legacy_migrated',
+        backup: 'warikan_v3_backup',        // rolling local backups (data-loss safety)
     };
 
     // One fixed shared space. Everyone who opens the page syncs here.
@@ -1013,6 +1186,7 @@
         syncStatus: 'idle',     // 'idle' | 'online' | 'syncing' | 'offline' | 'error'
         sharedRef: null,        // the single global Firebase ref
         suppressSync: false,    // prevent write-loop on remote update
+        viewMonth: null,        // 'YYYY-MM' for the analysis card
     };
 
     // ------------------------------------------------------------------
@@ -1033,7 +1207,77 @@
             localStorage.setItem(STORAGE_KEYS.cache, JSON.stringify({
                 tricounts: state.tricounts, updatedAt: Date.now(),
             }));
+            saveDailyBackup();
         } catch (e) { console.error('cache save failed', e); }
+    }
+    // Keep a rolling set of daily snapshots locally (extra data-loss safety).
+    function saveDailyBackup() {
+        try {
+            const today = todayISO();
+            let store = {};
+            try { store = JSON.parse(localStorage.getItem(STORAGE_KEYS.backup) || '{}'); } catch {}
+            store[today] = { tricounts: state.tricounts, savedAt: Date.now() };
+            const days = Object.keys(store).sort();
+            while (days.length > 14) delete store[days.shift()];
+            localStorage.setItem(STORAGE_KEYS.backup, JSON.stringify(store));
+        } catch {}
+    }
+    function downloadFile(name, content, mime) {
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    function exportData(fmt) {
+        const tc = currentTC();
+        if (!tc) return;
+        const stamp = todayISO();
+        if (fmt === 'json') {
+            downloadFile(`warikan-${stamp}.json`, JSON.stringify(tc, null, 2), 'application/json');
+            showToast('JSONを書き出したよ');
+            return;
+        }
+        const esc = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+        const rows = [['日付', '種別', 'タイトル', 'カテゴリ', '金額', '支払った人', ...(tc.participants || []).map(p => p.name + 'の負担')]];
+        (tc.expenses || []).slice().sort((a, b) => (a.date < b.date ? 1 : -1)).forEach(e => {
+            const cat = CAT_BY_KEY[categoryOf(e)] || CAT_BY_KEY.other;
+            const splitMap = {};
+            (e.splits || []).forEach(s => { splitMap[s.participantId] = s.amount; });
+            rows.push([
+                e.date,
+                e.type === 'income' ? '収入' : e.type === 'transfer' ? '送金' : '支出',
+                e.title, cat.label, e.amount, nameOf(tc, e.paidBy),
+                ...(tc.participants || []).map(p => splitMap[p.id] || 0),
+            ]);
+        });
+        (tc.settlements || []).forEach(s => {
+            rows.push([s.date, '精算', `${nameOf(tc, s.from)}→${nameOf(tc, s.to)}`, '', s.amount, nameOf(tc, s.from), ...(tc.participants || []).map(() => '')]);
+        });
+        const csv = '\ufeff' + rows.map(r => r.map(esc).join(',')).join('\r\n');
+        downloadFile(`warikan-${stamp}.csv`, csv, 'text/csv');
+        showToast('CSVを書き出したよ');
+    }
+    function importJsonFile(file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const obj = JSON.parse(reader.result);
+                const tc = obj && obj.expenses ? obj : (obj && obj.tricounts && obj.tricounts[0]);
+                if (!tc || !tc.expenses) return showToast('対応していないファイルだよ');
+                if (!confirm('現在のデータをこのファイルの内容で置き換えます。よろしいですか？')) return;
+                tc.id = (currentTC() && currentTC().id) || tc.id || uid('tc_');
+                tc.recoveredFrom = (currentTC() && currentTC().recoveredFrom) || tc.recoveredFrom || 'NJ81Z5';
+                tc.updatedAt = Date.now();
+                state.tricounts = [tc, ...state.tricounts.filter(t => t.id !== tc.id)];
+                pushShared();
+                render();
+                showToast('読み込んだよ');
+            } catch (e) { showToast('読み込みに失敗した'); }
+        };
+        reader.readAsText(file);
     }
     function loadMe() {
         try {
@@ -1609,6 +1853,91 @@
         `;
     }
 
+    function donutSVG(segments, total, currency) {
+        const R = 52, C = 2 * Math.PI * R, size = 132;
+        let acc = 0;
+        const arcs = segments.map(s => {
+            const frac = total > 0 ? s.value / total : 0;
+            const len = frac * C;
+            const dash = `${len} ${C - len}`;
+            const off = -acc * C;
+            acc += frac;
+            return `<circle cx="${size/2}" cy="${size/2}" r="${R}" fill="none" stroke="${s.color}" stroke-width="18" stroke-dasharray="${dash}" stroke-dashoffset="${off}" transform="rotate(-90 ${size/2} ${size/2})"/>`;
+        }).join('');
+        return `
+            <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+                <circle cx="${size/2}" cy="${size/2}" r="${R}" fill="none" stroke="var(--bg-elev-2)" stroke-width="18"/>
+                ${total > 0 ? arcs : ''}
+                <text x="50%" y="46%" text-anchor="middle" font-size="11" fill="var(--text-secondary)">合計</text>
+                <text x="50%" y="62%" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text)">${escapeHtml(formatMoney(total, currency))}</text>
+            </svg>`;
+    }
+
+    function renderAnalysis(data) {
+        const months = (data.expenses || []).filter(e => e.type === 'expense').map(e => monthKey(e.date)).filter(Boolean);
+        const defaultM = months.length ? months.sort().slice(-1)[0] : monthKey(todayISO());
+        if (!state.viewMonth) state.viewMonth = defaultM;
+        const vm = state.viewMonth;
+        const inMonth = (data.expenses || []).filter(e => e.type === 'expense' && monthKey(e.date) === vm);
+        const prevM = shiftMonth(vm, -1);
+        const prevTotal = (data.expenses || []).filter(e => e.type === 'expense' && monthKey(e.date) === prevM)
+            .reduce((a, e) => a + (Number(e.amount) || 0), 0);
+        const total = inMonth.reduce((a, e) => a + (Number(e.amount) || 0), 0);
+        const byCat = {};
+        inMonth.forEach(e => { const k = categoryOf(e); byCat[k] = (byCat[k] || 0) + (Number(e.amount) || 0); });
+        const segments = CATEGORIES.filter(c => byCat[c.key]).map(c => ({ key: c.key, value: byCat[c.key], color: c.color }))
+            .sort((a, b) => b.value - a.value);
+        const delta = total - prevTotal;
+        const deltaPct = prevTotal > 0 ? Math.round((delta / prevTotal) * 100) : null;
+        const deltaTxt = prevTotal === 0 ? '前月データなし'
+            : (delta === 0 ? '前月と同じ'
+            : `${delta > 0 ? '▲' : '▼'} ${formatMoney(Math.abs(delta), data.currency)}${deltaPct !== null ? ` (${delta > 0 ? '+' : ''}${deltaPct}%)` : ''} 前月比`);
+        const legend = segments.map(s => {
+            const c = CAT_BY_KEY[s.key];
+            const pct = total > 0 ? Math.round((s.value / total) * 100) : 0;
+            return `
+                <div class="legend-row">
+                    <span class="legend-dot" style="background:${c.color}"></span>
+                    <span class="legend-name">${c.emoji} ${escapeHtml(c.label)}</span>
+                    <span class="legend-val">${escapeHtml(formatMoney(s.value, data.currency))}<span class="legend-pct"> ${pct}%</span></span>
+                </div>`;
+        }).join('') || '<div class="helper" style="text-align:center;">この月の支出はまだないよ</div>';
+
+        return `
+            <div class="analysis-card">
+                <div class="month-nav">
+                    <button class="month-arrow" data-action="month-prev" aria-label="前の月">‹</button>
+                    <div class="month-label">${escapeHtml(formatMonthLabel(vm))}</div>
+                    <button class="month-arrow" data-action="month-next" aria-label="次の月">›</button>
+                </div>
+                <div class="analysis-body">
+                    <div class="donut-wrap">${donutSVG(segments, total, data.currency)}</div>
+                    <div class="legend">${legend}</div>
+                </div>
+                <div class="delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : ''}">${escapeHtml(deltaTxt)}</div>
+            </div>`;
+    }
+
+    function renderTemplatesQuick(data) {
+        const tpls = data.templates || [];
+        if (!tpls.length) {
+            return `<button class="split-preset-btn" style="width:100%;" data-action="open-templates">＋ 定期支出を登録（家賃・光熱費・サブスク等）</button>`;
+        }
+        const chips = tpls.map(t => {
+            const c = CAT_BY_KEY[t.category] || CAT_BY_KEY.other;
+            return `<button class="tpl-chip" data-action="add-from-template" data-id="${escapeAttr(t.id)}">
+                <span>${c.emoji} ${escapeHtml(t.title)}</span>
+                <span class="tpl-amt">${escapeHtml(formatMoney(t.amount, data.currency))}</span>
+            </button>`;
+        }).join('');
+        return `
+            <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>定期支出（タップで今月分を追加）</span>
+                <button class="topbar-action" style="font-size:13px;" data-action="open-templates">編集</button>
+            </div>
+            <div class="tpl-list">${chips}</div>`;
+    }
+
     // ---- Tricount detail ----
     function renderTricount() {
         const data = state.currentData;
@@ -1713,6 +2042,10 @@
                         ` : ''}
                     </div>
 
+                    ${renderAnalysis(data)}
+
+                    ${renderTemplatesQuick(data)}
+
                     <div class="section-title">履歴</div>
                     ${expensesHtml}
                 </div>
@@ -1727,7 +2060,8 @@
     function renderExpenseRow(data, e) {
         const isIncome = e.type === 'income';
         const isTransfer = e.type === 'transfer';
-        const icon = isIncome ? '⇣' : isTransfer ? '⇄' : '🧾';
+        const cat = CAT_BY_KEY[categoryOf(e)] || CAT_BY_KEY.other;
+        const icon = isIncome ? '⇣' : isTransfer ? '⇄' : cat.emoji;
         const cls = isIncome ? 'income' : isTransfer ? 'transfer' : '';
         let meta;
         if (isTransfer) {
@@ -1774,6 +2108,7 @@
             case 'settings': inner = sheetSettings(); break;
             case 'help': inner = sheetHelp(); break;
             case 'recover': inner = sheetRecover(); break;
+            case 'templates': inner = sheetTemplates(); break;
             case 'addSettle': inner = sheetAddSettle(); break;
         }
         return `
@@ -1878,6 +2213,7 @@
                     date: existing.date,
                     splits: existing.splits.map(s => ({ ...s, included: true })),
                     splitMode: isEqual ? 'equal' : 'custom',
+                    category: categoryOf(existing),
                     createdAt: existing.createdAt,
                 };
                 // Add unincluded participants
@@ -1898,6 +2234,7 @@
                 date: todayISO(),
                 splits: data.participants.map(p => ({ participantId: p.id, amount: 0, included: true })),
                 splitMode: 'equal',
+                category: 'food',
                 createdAt: Date.now(),
             };
             state.sheetData = draft;
@@ -1993,6 +2330,18 @@
             `;
         }
 
+        const catGrid = draft.type === 'transfer' ? '' : `
+            <div class="form-section">
+                <label class="form-label">カテゴリ</label>
+                <div class="cat-grid">
+                    ${CATEGORIES.map(c => `
+                        <button class="cat-chip ${draft.category === c.key ? 'active' : ''}" data-action="set-category" data-cat="${c.key}">
+                            <span class="cat-emoji">${c.emoji}</span><span>${c.label}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>`;
+
         return `
             <div class="sheet-title">${existingId ? '支払いを編集' : '支払いを追加'}</div>
             <div class="tabs">${tabs}</div>
@@ -2001,6 +2350,8 @@
                 <label class="form-label">タイトル</label>
                 <input data-field="title" value="${escapeAttr(draft.title)}" placeholder="例: 食事 / 宿泊" maxlength="60">
             </div>
+
+            ${catGrid}
 
             <div class="form-section">
                 <label class="form-label">金額</label>
@@ -2026,6 +2377,11 @@
             </div>
 
             ${splitSection}
+
+            ${draft.type === 'expense' && !existingId ? `
+                <button class="split-preset-btn ${draft.saveTemplate ? 'active' : ''}" style="width:100%; margin-bottom:12px;" data-action="toggle-save-template">
+                    ${draft.saveTemplate ? '✓ ' : ''}毎月の定期支出として保存
+                </button>` : ''}
 
             <button class="btn-primary" data-action="confirm-expense">${existingId ? '保存' : '追加'}</button>
             ${existingId ? `<button class="btn-danger" style="margin-top:10px;" data-action="delete-expense" data-id="${escapeAttr(existingId)}">削除</button>` : ''}
@@ -2104,6 +2460,29 @@
         `;
     }
 
+    function sheetTemplates() {
+        const data = state.currentData;
+        const tpls = data.templates || [];
+        const rows = tpls.length ? tpls.map(t => {
+            const c = CAT_BY_KEY[t.category] || CAT_BY_KEY.other;
+            return `
+                <div class="tpl-row">
+                    <div class="tpl-row-main">
+                        <div class="tpl-row-title">${c.emoji} ${escapeHtml(t.title)}</div>
+                        <div class="helper">${escapeHtml(formatMoney(t.amount, data.currency))} · ${escapeHtml(nameOf(data, t.paidBy))}が支払い</div>
+                    </div>
+                    <button class="tpl-add-btn" data-action="add-from-template" data-id="${escapeAttr(t.id)}">今月追加</button>
+                    <button class="tpl-del-btn" data-action="delete-template" data-id="${escapeAttr(t.id)}" aria-label="削除">×</button>
+                </div>`;
+        }).join('') : '<div class="helper" style="text-align:center; padding:20px 0;">まだ定期支出がないよ。<br>支払い追加画面で「毎月の定期支出として保存」にチェックすると登録できる。</div>';
+        return `
+            <div class="sheet-title">定期支出</div>
+            <div class="helper" style="margin-bottom:14px;">家賃・光熱費・サブスクなど毎月同じ支払いをワンタップで追加。</div>
+            <div class="tpl-manage">${rows}</div>
+            <button class="btn-primary" style="margin-top:16px;" data-action="add-expense">＋ 新しい支払いから登録</button>
+        `;
+    }
+
     function sheetSettings() {
         const data = state.currentData;
         const draft = state.sheetData = state.sheetData || {
@@ -2160,7 +2539,16 @@
                 </div>
             </div>
             <button class="btn-primary" data-action="confirm-settings">保存</button>
-            <button class="btn-danger" style="margin-top:10px;" data-action="delete-tricount">このトリカウントを削除</button>
+
+            <div class="section-title" style="margin-top:22px;">バックアップ</div>
+            <div class="helper" style="margin-bottom:10px;">データはFirebaseと端末に自動保存されています。手動で書き出し/読み込みもできます。</div>
+            <div class="backup-btns">
+                <button class="split-preset-btn" data-action="export-json">JSON書き出し</button>
+                <button class="split-preset-btn" data-action="export-csv">CSV書き出し</button>
+                <button class="split-preset-btn" data-action="import-json">読み込み</button>
+            </div>
+
+            <button class="btn-danger" style="margin-top:22px;" data-action="delete-tricount">このトリカウントを削除</button>
             <div class="helper" style="margin-top:6px;">※ 全デバイス共通の削除です。元に戻せません。</div>
         `;
     }
@@ -2484,6 +2872,74 @@
                 render();
                 break;
             }
+            case 'set-category': {
+                if (state.sheetData) state.sheetData.category = el.dataset.cat;
+                render();
+                break;
+            }
+            case 'toggle-save-template': {
+                if (state.sheetData) state.sheetData.saveTemplate = !state.sheetData.saveTemplate;
+                render();
+                break;
+            }
+            case 'month-prev': {
+                state.viewMonth = shiftMonth(state.viewMonth || monthKey(todayISO()), -1);
+                render();
+                break;
+            }
+            case 'month-next': {
+                state.viewMonth = shiftMonth(state.viewMonth || monthKey(todayISO()), 1);
+                render();
+                break;
+            }
+            case 'open-templates': {
+                state.sheet = 'templates';
+                state.sheetData = null;
+                render();
+                break;
+            }
+            case 'add-from-template': {
+                const tc = currentTC();
+                const tpl = (tc && tc.templates || []).find(t => t.id === el.dataset.id);
+                if (!tpl) break;
+                addExpense({
+                    id: uid('e_'),
+                    type: 'expense',
+                    title: tpl.title,
+                    amount: tpl.amount,
+                    paidBy: tpl.paidBy,
+                    date: todayISO(),
+                    splits: (tpl.splits || []).map(s => ({ ...s })),
+                    category: tpl.category || 'other',
+                    createdAt: Date.now(),
+                });
+                showToast(tpl.title + ' を今月分として追加したよ');
+                render();
+                break;
+            }
+            case 'delete-template': {
+                const tc = currentTC();
+                if (tc && tc.templates) {
+                    tc.templates = tc.templates.filter(t => t.id !== el.dataset.id);
+                    touch(tc);
+                    pushShared();
+                    render();
+                }
+                break;
+            }
+            case 'export-json': {
+                exportData('json');
+                break;
+            }
+            case 'export-csv': {
+                exportData('csv');
+                break;
+            }
+            case 'import-json': {
+                const inp = document.getElementById('import-file');
+                if (inp) inp.click();
+                break;
+            }
             case 'toggle-split': {
                 const id = el.dataset.id;
                 const s = state.sheetData.splits.find(x => x.participantId === id);
@@ -2548,8 +3004,26 @@
                     paidBy: draft.paidBy,
                     date: draft.date,
                     splits,
+                    category: draft.type === 'transfer' ? null : (draft.category || 'other'),
                     createdAt: draft.createdAt || Date.now(),
                 };
+                if (draft.saveTemplate && draft.type === 'expense') {
+                    const tc = currentTC();
+                    if (tc) {
+                        tc.templates = tc.templates || [];
+                        tc.templates.push({
+                            id: uid('tpl_'),
+                            title: expense.title,
+                            amount: expense.amount,
+                            paidBy: expense.paidBy,
+                            category: expense.category,
+                            splitMode: draft.splitMode,
+                            splits: splits.map(s => ({ participantId: s.participantId, amount: s.amount })),
+                        });
+                        touch(tc);
+                        pushShared();
+                    }
+                }
                 if (draft.id) updateExpense(expense); else addExpense(expense);
                 state.sheet = null;
                 state.sheetData = null;
@@ -2734,6 +3208,18 @@
             state.syncStatus = 'offline';
             render();
         });
+
+        // Import file picker (wired once).
+        const imp = document.getElementById('import-file');
+        if (imp) imp.addEventListener('change', () => {
+            if (imp.files && imp.files[0]) importJsonFile(imp.files[0]);
+            imp.value = '';
+        });
+
+        // PWA: install + offline.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
     }
 
     boot();
