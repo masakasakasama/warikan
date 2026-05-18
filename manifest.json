@@ -1,0 +1,14 @@
+{
+  "name": "warikan",
+  "short_name": "warikan",
+  "description": "たつや ♡ レベッカ の割り勘",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff5f8",
+  "theme_color": "#fff5f8",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
