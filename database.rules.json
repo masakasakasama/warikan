@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "shared": {
+      ".read": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'masakasakasama.man@gmail.com' || auth.token.email.toLowerCase() == 'rere.geier@gmail.com')",
+      ".write": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'masakasakasama.man@gmail.com' || auth.token.email.toLowerCase() == 'rere.geier@gmail.com')"
+    },
+    "rooms": {
+      ".read": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'masakasakasama.man@gmail.com' || auth.token.email.toLowerCase() == 'rere.geier@gmail.com')",
+      ".write": "auth != null && auth.token.email_verified == true && (auth.token.email.toLowerCase() == 'masakasakasama.man@gmail.com' || auth.token.email.toLowerCase() == 'rere.geier@gmail.com')"
+    },
+    "marriage-procedure": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

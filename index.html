@@ -13,6 +13,7 @@
     <title>warikan</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     <style>
         :root {
             --bg: #fff5f8;
@@ -1056,6 +1057,58 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    const auth = firebase.auth();
+
+    // Only these two Google accounts may read or write (enforced again by the
+    // Realtime Database rules in database.rules.json; this check is just UX).
+    const ALLOWED_EMAILS = ['masakasakasama.man@gmail.com', 'rere.geier@gmail.com'];
+    const isAllowedUser = (user) => Boolean(user && user.email && ALLOWED_EMAILS.includes(user.email.toLowerCase()));
+
+    function showSignIn(message) {
+        let el = document.getElementById('auth-gate');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'auth-gate';
+            el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(255,255,255,.96);text-align:center;font-family:inherit';
+            el.innerHTML = '<div style="max-width:320px"><div style="font-size:40px">💕</div>' +
+                '<h2 style="margin:12px 0 8px">ログインしてね</h2>' +
+                '<p id="auth-gate-msg" style="color:#666;font-size:14px;margin:0 0 16px"></p>' +
+                '<button id="auth-gate-btn" style="width:100%;padding:12px;border:0;border-radius:12px;background:var(--primary,#ec4899);color:#fff;font-size:16px;font-weight:600">Googleでログイン</button></div>';
+            document.body.appendChild(el);
+            document.getElementById('auth-gate-btn').addEventListener('click', () => {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.setCustomParameters({ prompt: 'select_account' });
+                auth.signInWithPopup(provider).catch((err) => {
+                    if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')) {
+                        return auth.signInWithRedirect(provider);
+                    }
+                    showSignIn('ログインできなかった: ' + (err && err.code || err));
+                });
+            });
+        }
+        document.getElementById('auth-gate-msg').textContent = message || '割り勘データは2人だけが見られるよ';
+        el.style.display = 'flex';
+    }
+
+    function hideSignIn() {
+        const el = document.getElementById('auth-gate');
+        if (el) el.style.display = 'none';
+    }
+
+    // Resolves once an allowed account is signed in.
+    function whenSignedIn() {
+        return new Promise((resolve) => {
+            auth.onAuthStateChanged((user) => {
+                if (isAllowedUser(user)) { hideSignIn(); resolve(user); return; }
+                if (user) {
+                    auth.signOut();
+                    showSignIn((user.email || 'このアカウント') + ' は使えないよ');
+                    return;
+                }
+                showSignIn();
+            });
+        });
+    }
 
     // ------------------------------------------------------------------
     // Constants
@@ -1134,43 +1187,10 @@
     // Old per-room sync data to auto-restore once into the shared node.
     const LEGACY_ROOMS = ['NJ81Z5'];
 
-    // Authoritative snapshot of the couple's real sync room (rooms/NJ81Z5),
-    // embedded so recovery never depends on a network read succeeding.
+    // The old embedded payment snapshot was removed: this page is public, and the
+    // data already lives in the shared node. EMBEDDED_VERSION stays so imported
+    // datasets keep their marker.
     const EMBEDDED_VERSION = 3;
-    const EMBEDDED_LEGACY = {
-        roomId: 'NJ81Z5',
-        version: EMBEDDED_VERSION,
-        payments: [
-            // --- rooms/NJ81Z5 original sync data ---
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            // --- 3〜4月の追加分（内訳不明のため 50/50）---
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-            /* removed */,
-        ],
-        settlements: [
-            // レベッカ → たつや 返金
-            /* removed */,
-            // 全部精算（残高ゼロ）にするための最終調整
-            /* removed */,
-        ],
-    };
 
     // ------------------------------------------------------------------
     // State
@@ -1778,36 +1798,6 @@
         if (m && m[1]) recoverFromRoom(m[1], { silent: false });
     }
 
-    // Restore the couple's real history from the embedded snapshot. No network
-    // read involved, so this cannot fail; dedupe-guarded to run only once.
-    function recoverEmbedded() {
-        const e = EMBEDDED_LEGACY;
-        const existing = state.tricounts.find(t => t && t.recoveredFrom === e.roomId);
-        if (existing && existing.embeddedVersion === e.version) return;
-        const tc = buildLegacyTricount(e.payments, e.settlements, {
-            recoveredFrom: e.roomId,
-            name: 'たつや ♡ レベッカ',
-            description: '同期データを復元 (' + e.roomId + ')',
-        });
-        tc.embeddedVersion = e.version;
-        // Replace any older recovered copy so the corrected, settled data wins.
-        db.ref(SHARED_PATH).transaction((curr) => {
-            curr = curr || { tricounts: [] };
-            curr.tricounts = curr.tricounts || [];
-            const cur = curr.tricounts.find(t => t && t.recoveredFrom === e.roomId);
-            if (cur && cur.embeddedVersion === e.version) return curr;
-            const clean = { ...tc }; delete clean._myId;
-            curr.tricounts = curr.tricounts.filter(t => !(t && t.recoveredFrom === e.roomId));
-            curr.tricounts = [clean, ...curr.tricounts];
-            curr.updatedAt = Date.now();
-            return curr;
-        }).then((res) => {
-            if (res && res.committed) {
-                if (tc._myId) setMyId(tc.id, tc._myId);
-                showToast('履歴を復元・精算済みにしたよ💕');
-            }
-        }).catch((err) => console.error('embedded recovery failed', err));
-    }
 
     // ------------------------------------------------------------------
     // Rendering
@@ -3193,7 +3183,13 @@
         state.me = loadMe();
         render();
 
-        // One shared node, always-on. Everyone who opens the page syncs here.
+        // Shared data is readable only after an allowed Google account signs in.
+        whenSignedIn().then(startSync);
+        wireLocalHandlers();
+    }
+
+    function startSync() {
+        // One shared node, always-on for the two of us.
         subscribeShared();
 
         // Migrate / recover, after the first sync settles.
@@ -3202,9 +3198,7 @@
         const runRecovery = () => {
             if (recovered) return;
             recovered = true;
-            // Embedded snapshot first: guaranteed, no network dependency.
-            recoverEmbedded();
-            // Then best-effort network restores for any other old rooms.
+            // Best-effort network restores for any old rooms.
             LEGACY_ROOMS.forEach(rid => recoverFromRoom(rid, { silent: true }));
             autoRecoverFromUrl();      // also handle any old ?room= link
             migrateLegacyIfNeeded();   // this device's old localStorage
@@ -3222,6 +3216,9 @@
             render();
         });
 
+    }
+
+    function wireLocalHandlers() {
         // Import file picker (wired once).
         const imp = document.getElementById('import-file');
         if (imp) imp.addEventListener('change', () => {
